@@ -21,15 +21,17 @@ var (
 )
 
 func init() {
-	pflag.StringVar(&url, "u", "", "url to test")
-	pflag.IntVar(&count, "c", 4, "count of requests")
+	pflag.StringVar(&url, "url", "", "url to test")
+	pflag.IntVar(&count, "count", 4, "count of requests")
 }
 
 func usage() {
 	fmt.Println(os.Args[0])
+	fmt.Println()
 
 	fmt.Println("Usage:")
-	fmt.Printf("  httpbench")
+	fmt.Printf("  httpbench --url https://mywebsite.com\n")
+	fmt.Printf("  httpbench --url https://mywebsite.com --count 100\n\n")
 
 	fmt.Println("Options:")
 	pflag.PrintDefaults()
@@ -37,6 +39,21 @@ func usage() {
 
 func main() {
 	pflag.Parse()
+	args := pflag.Args()
+
+	if url == "" && len(args) == 0 {
+		usage()
+		os.Exit(1)
+	}
+
+	if len(args) > 1 {
+		usage()
+		os.Exit(1)
+	}
+
+	if len(args) == 1 {
+		url = args[0]
+	}
 
 	c := config{
 		url:   url,
