@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 
 	"github.com/rnemeth90/httpbench"
 	"github.com/spf13/pflag"
@@ -51,12 +52,21 @@ func main() {
 
 func run(c config, w io.Writer) error {
 
-	result, err := httpbench.MakeRequest(c.url)
-	if err != nil {
-		return err
+	results := []httpbench.HTTPResponse{}
+	rChan := make(chan httpbench.HTTPResponse)
+	mu := sync.Mutex{}
+	wg := sync.WaitGroup{}
+
+	wg.Add(count)
+	for i := 0; i < count; i++ {
+		go httpbench.MakeRequest(c.url, rChan, &mu, &wg)
+		results = append(results, <-rChan)
 	}
 
-	fmt.Printf("%d", result.Status)
+	for _, r := range results {
+		fmt.Println(url, r.Status, r.Latency)
+	}
 
+	wg.Wait()
 	return nil
 }
