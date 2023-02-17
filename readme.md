@@ -16,10 +16,10 @@ Or download the latest release [here](https://github.com/rnemeth90/httpbench/rel
 If you need help, submit an issue
 
 ## To Do
-- [ ] Connections
+- [x] Connections
 - [ ] headers
 - [ ] url tolower()
-- [ ] timeout
+- [x] timeout
 
 ## Version History
 * 0.1
