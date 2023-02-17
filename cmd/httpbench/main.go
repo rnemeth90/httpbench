@@ -11,18 +11,27 @@ import (
 )
 
 type config struct {
-	url   string
-	count int
+	url         string
+	count       int
+	connections int
+	useHTTP     bool
+	headers     string
 }
 
 var (
-	url   string
-	count int
+	url      string
+	count    int
+	conns    int
+	insecure bool
+	headers  string
 )
 
 func init() {
 	pflag.StringVar(&url, "url", "", "url to test")
 	pflag.IntVar(&count, "count", 4, "count of requests")
+	pflag.IntVar(&conns, "conns", 1, "connections")
+	pflag.BoolVar(&insecure, "insecure", false, "insecure")
+	pflag.StringVar(&headers, "headers", "", "request headers <string:string>")
 }
 
 func usage() {
@@ -56,8 +65,11 @@ func main() {
 	}
 
 	c := config{
-		url:   url,
-		count: count,
+		url:         url,
+		count:       count,
+		connections: conns,
+		useHTTP:     insecure,
+		headers:     headers,
 	}
 
 	if err := run(c, os.Stdout); err != nil {
@@ -76,12 +88,12 @@ func run(c config, w io.Writer) error {
 
 	wg.Add(count)
 	for i := 0; i < count; i++ {
-		go httpbench.MakeRequest(c.url, rChan, &mu, &wg)
+		go httpbench.MakeRequest(c.url, c.useHTTP, c.connections, c.headers, rChan, &mu, &wg)
 		results = append(results, <-rChan)
 	}
 
 	for _, r := range results {
-		fmt.Println(url, r.Status, r.Latency)
+		fmt.Fprintln(os.Stdout, fmt.Sprintf("%s, %d, %v, %v", url, r.Status, r.Latency, r.Err))
 	}
 
 	wg.Wait()
