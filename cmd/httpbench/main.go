@@ -32,6 +32,7 @@ func init() {
 	pflag.IntVar(&conns, "conns", 1, "connections")
 	pflag.BoolVar(&insecure, "insecure", false, "insecure")
 	pflag.StringVar(&headers, "headers", "", "request headers <string:string>")
+	pflag.Usage = usage
 }
 
 func usage() {
@@ -71,6 +72,8 @@ func main() {
 		useHTTP:     insecure,
 		headers:     headers,
 	}
+
+	fmt.Printf("making %d connections to %s...\n", count, url)
 
 	if err := run(c, os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, err)
