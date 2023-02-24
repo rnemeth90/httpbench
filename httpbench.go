@@ -2,6 +2,9 @@ package httpbench
 
 import (
 	"fmt"
+	"io"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -14,23 +17,51 @@ type HTTPResponse struct {
 	Err     error
 }
 
-// MakeRequest makes a HTTP request
-func MakeRequest(url string, useHTTP bool, connCount int, headers string, rChan chan HTTPResponse, mu *sync.Mutex, wg *sync.WaitGroup) {
-	defer mu.Unlock()
-	defer wg.Done()
-	var requestHeaders map[string]string
+type Statistics struct {
+	UsedConnections       int
+	UsedThreads           int
+	TotalCalls            int
+	TotalTime             time.Time
+	AvgTimePerRequest     time.Duration
+	RequestsPerSecond     float64
+	FastestRequest        time.Duration
+	SlowestRequest        time.Duration
+	TwoHundredResponses   int
+	ThreeHundredResponses int
+	FourHundredResponses  int
+	FiveHundredResponses  int
+}
 
-	t := http.DefaultTransport.(*http.Transport).Clone()
-	t.MaxIdleConns = connCount
-	t.MaxIdleConnsPerHost = connCount
-	t.MaxConnsPerHost = connCount
+func CreateHTTPClient(timeout int64, keepalives bool, compression bool) http.Client {
 
-	mu.Lock()
-	client := &http.Client{
-		Timeout:   10 * time.Second,
-		Transport: t,
+	t := &http.Transport{}
+
+	if !keepalives {
+		t.MaxConnsPerHost = -1
+		t.DisableKeepAlives = true
 	}
 
+	if !compression {
+		t.DisableCompression = compression
+	}
+
+	return http.Client{
+		Timeout:   time.Second * time.Duration(timeout),
+		Transport: t,
+	}
+}
+
+// MakeRequest makes a HTTP request
+func MakeRequestAsync(url string, useHTTP bool, headers string, mu *sync.Mutex, wg *sync.WaitGroup, client *http.Client, results *[]HTTPResponse) {
+	var requestHeaders map[string]string
+	defer wg.Done()
+	// client trace to log whether the request's underlying tcp connection was re-used
+	//clientTrace := &httptrace.ClientTrace{
+	//	GotConn: func(info httptrace.GotConnInfo) { log.Printf("conn was reused: %t", info.Reused) },
+	//}
+	//traceCtx := httptrace.WithClientTrace(context.Background(), clientTrace)
+
+	mu.Lock()
 	httpResponse := HTTPResponse{}
 
 	if !strings.Contains(url, "http") {
@@ -55,7 +86,10 @@ func MakeRequest(url string, useHTTP bool, connCount int, headers string, rChan 
 	if err != nil {
 		httpResponse.Err = err
 	}
-	defer response.Body.Close()
+	if _, err := io.Copy(ioutil.Discard, response.Body); err != nil {
+		log.Fatal(err)
+	}
+	response.Body.Close()
 
 	end := time.Since(start)
 	status := response.StatusCode
@@ -64,8 +98,9 @@ func MakeRequest(url string, useHTTP bool, connCount int, headers string, rChan 
 		Latency: end,
 		Status:  status,
 	}
+	mu.Unlock()
 
-	rChan <- httpResponse
+	*results = append(*results, httpResponse)
 }
 
 func parseURL(url string, useHTTP bool) string {

@@ -3,9 +3,13 @@ package main
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"sync"
+	"time"
 
+	"github.com/briandowns/spinner"
+	"github.com/fatih/color"
 	"github.com/rnemeth90/httpbench"
 	"github.com/spf13/pflag"
 )
@@ -13,25 +17,38 @@ import (
 type config struct {
 	url         string
 	count       int
-	connections int
+	threads     int
 	useHTTP     bool
 	headers     string
+	timeout     int64
+	keepalives  bool
+	compression bool
+	duration    int
 }
 
 var (
-	url      string
-	count    int
-	conns    int
-	insecure bool
-	headers  string
+	url         string
+	count       int
+	threads     int
+	insecure    bool
+	headers     string
+	timeout     int64
+	keepalives  bool
+	compression bool
+	duration    int
 )
 
 func init() {
-	pflag.StringVar(&url, "url", "", "url to test")
-	pflag.IntVar(&count, "count", 4, "count of requests")
-	pflag.IntVar(&conns, "conns", 1, "connections")
-	pflag.BoolVar(&insecure, "insecure", false, "insecure")
-	pflag.StringVar(&headers, "headers", "", "request headers <string:string>")
+	pflag.StringVarP(&url, "url", "u", "", "url to test")
+	pflag.IntVarP(&count, "requests", "r", 4, "count of requests per second")
+	pflag.IntVarP(&threads, "threads", "l", 1, "threads")
+	pflag.IntVarP(&duration, "duration", "d", 10, "duration")
+	pflag.BoolVarP(&insecure, "insecure", "i", false, "insecure")
+	pflag.StringVarP(&headers, "headers", "h", "", "request headers <string:string>")
+	pflag.Int64VarP(&timeout, "timeout", "t", 10, "timeout")
+	pflag.BoolVarP(&keepalives, "keepalives", "k", true, "keepalives")
+	pflag.BoolVarP(&compression, "compression", "c", true, "compression")
+	pflag.Usage = usage
 }
 
 func usage() {
@@ -67,9 +84,13 @@ func main() {
 	c := config{
 		url:         url,
 		count:       count,
-		connections: conns,
+		threads:     threads,
 		useHTTP:     insecure,
 		headers:     headers,
+		timeout:     timeout,
+		keepalives:  keepalives,
+		compression: compression,
+		duration:    duration,
 	}
 
 	if err := run(c, os.Stdout); err != nil {
@@ -81,21 +102,36 @@ func main() {
 
 func run(c config, w io.Writer) error {
 
-	results := []httpbench.HTTPResponse{}
-	rChan := make(chan httpbench.HTTPResponse)
-	mu := sync.Mutex{}
-	wg := sync.WaitGroup{}
+	results := make([]httpbench.HTTPResponse, 0)
+	var client http.Client
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
 
-	wg.Add(count)
-	for i := 0; i < count; i++ {
-		go httpbench.MakeRequest(c.url, c.useHTTP, c.connections, c.headers, rChan, &mu, &wg)
-		results = append(results, <-rChan)
+	client = httpbench.CreateHTTPClient(c.timeout, c.keepalives, c.compression)
+
+	color.Green("Making %d calls per second for %d seconds...", c.count, c.duration)
+
+	for durationCounter := 0; durationCounter <= duration; durationCounter++ {
+		for i := 0; i < count; i++ {
+			wg.Add(1)
+			go httpbench.MakeRequestAsync(c.url, c.useHTTP, c.headers, &mu, &wg, &client, &results)
+		}
+
+		var finished = durationCounter * c.count
+		color.Cyan("Finished sending %d requests...", finished)
+		time.Sleep(1 * time.Second)
 	}
+
+	s.Color("yellow")
+	s.Prefix = "Processing..."
+	s.Start() // Start the spinner
+	wg.Wait()
+	s.Stop()
 
 	for _, r := range results {
 		fmt.Fprintln(os.Stdout, fmt.Sprintf("%s, %d, %v, %v", url, r.Status, r.Latency, r.Err))
 	}
 
-	wg.Wait()
 	return nil
 }
