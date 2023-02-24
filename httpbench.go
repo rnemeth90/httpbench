@@ -113,5 +113,14 @@ func parseURL(url string, useHTTP bool) string {
 
 func parseHeaders(headers string) map[string]string {
 	m := make(map[string]string)
+
+	csvs := strings.Split(headers, ",")
+	for _, v := range csvs {
+		headers := strings.Split(v, ":")
+		for i := 0; i < len(headers)-1; i++ {
+			m[headers[i]] = headers[i+1]
+		}
+	}
+
 	return m
 }

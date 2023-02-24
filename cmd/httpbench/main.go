@@ -93,6 +93,8 @@ func main() {
 		duration:    duration,
 	}
 
+	fmt.Printf("making %d connections to %s...\n", count, url)
+
 	if err := run(c, os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
