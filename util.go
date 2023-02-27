@@ -36,6 +36,7 @@ func CalculateStatistics(responses []HTTPResponse) Statistics {
 
 	avgLatency := totalLatency / int64(len(responses))
 	stats.AvgTimePerRequest = time.Duration(avgLatency)
+	stats.TotalTime = time.Duration(totalLatency)
 
 	stats.TwoHundredResponses = twoHundreds
 	stats.ThreeHundredResponses = threeHundreds

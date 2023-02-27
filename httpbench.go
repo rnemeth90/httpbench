@@ -1,6 +1,7 @@
 package httpbench
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -18,12 +19,9 @@ type HTTPResponse struct {
 }
 
 type Statistics struct {
-	UsedConnections       int
-	UsedThreads           int
 	TotalCalls            int
-	TotalTime             time.Time
+	TotalTime             time.Duration
 	AvgTimePerRequest     time.Duration
-	RequestsPerSecond     float64
 	FastestRequest        time.Duration
 	SlowestRequest        time.Duration
 	TwoHundredResponses   int
@@ -52,7 +50,7 @@ func CreateHTTPClient(timeout int64, keepalives bool, compression bool) http.Cli
 }
 
 // MakeRequest makes a HTTP request
-func MakeRequestAsync(url string, useHTTP bool, headers string, mu *sync.Mutex, wg *sync.WaitGroup, client *http.Client, results *[]HTTPResponse) {
+func MakeRequestAsync(url string, useHTTP bool, headers string, body []byte, mu *sync.Mutex, wg *sync.WaitGroup, client *http.Client, results *[]HTTPResponse) {
 	var requestHeaders map[string]string
 	defer wg.Done()
 	// client trace to log whether the request's underlying tcp connection was re-used
@@ -68,7 +66,9 @@ func MakeRequestAsync(url string, useHTTP bool, headers string, mu *sync.Mutex, 
 		url = parseURL(url, useHTTP)
 	}
 
-	request, err := http.NewRequest(http.MethodGet, url, nil)
+	url = strings.ToLower(url)
+
+	request, err := http.NewRequest(http.MethodGet, url, bytes.NewBuffer(body))
 	if err != nil {
 		httpResponse.Err = err
 	}

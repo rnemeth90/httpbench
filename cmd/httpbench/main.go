@@ -1,8 +1,10 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"sync"
@@ -15,36 +17,36 @@ import (
 )
 
 type config struct {
-	url         string
-	count       int
-	threads     int
-	useHTTP     bool
-	headers     string
-	timeout     int64
-	keepalives  bool
-	compression bool
-	duration    int
+	url          string
+	count        int
+	useHTTP      bool
+	headers      string
+	bodyFileName string
+	timeout      int64
+	keepalives   bool
+	compression  bool
+	duration     int
 }
 
 var (
-	url         string
-	count       int
-	threads     int
-	insecure    bool
-	headers     string
-	timeout     int64
-	keepalives  bool
-	compression bool
-	duration    int
+	url          string
+	count        int
+	insecure     bool
+	headers      string
+	bodyFileName string
+	timeout      int64
+	keepalives   bool
+	compression  bool
+	duration     int
 )
 
 func init() {
 	pflag.StringVarP(&url, "url", "u", "", "url to test")
 	pflag.IntVarP(&count, "requests", "r", 4, "count of requests per second")
-	pflag.IntVarP(&threads, "threads", "l", 1, "threads")
 	pflag.IntVarP(&duration, "duration", "d", 10, "duration")
 	pflag.BoolVarP(&insecure, "insecure", "i", false, "insecure")
 	pflag.StringVarP(&headers, "headers", "h", "", "request headers <string:string>")
+	pflag.StringVarP(&bodyFileName, "bodyFile", "b", "", "body file in json")
 	pflag.Int64VarP(&timeout, "timeout", "t", 10, "timeout")
 	pflag.BoolVarP(&keepalives, "keepalives", "k", true, "keepalives")
 	pflag.BoolVarP(&compression, "compression", "c", true, "compression")
@@ -82,18 +84,16 @@ func main() {
 	}
 
 	c := config{
-		url:         url,
-		count:       count,
-		threads:     threads,
-		useHTTP:     insecure,
-		headers:     headers,
-		timeout:     timeout,
-		keepalives:  keepalives,
-		compression: compression,
-		duration:    duration,
+		url:          url,
+		count:        count,
+		useHTTP:      insecure,
+		headers:      headers,
+		bodyFileName: bodyFileName,
+		timeout:      timeout,
+		keepalives:   keepalives,
+		compression:  compression,
+		duration:     duration,
 	}
-
-	fmt.Printf("making %d connections to %s...\n", count, url)
 
 	if err := run(c, os.Stdout); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -109,15 +109,23 @@ func run(c config, w io.Writer) error {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
-
 	client = httpbench.CreateHTTPClient(c.timeout, c.keepalives, c.compression)
+	body := make([]byte, 0)
+	err := errors.New("")
+
+	if c.bodyFileName != "" {
+		body, err = ioutil.ReadFile(bodyFileName)
+		if err != nil {
+			return err
+		}
+	}
 
 	color.Green("Making %d calls per second for %d seconds...", c.count, c.duration)
 
-	for durationCounter := 0; durationCounter <= duration; durationCounter++ {
+	for durationCounter := 1; durationCounter <= duration; durationCounter++ {
 		for i := 0; i < count; i++ {
 			wg.Add(1)
-			go httpbench.MakeRequestAsync(c.url, c.useHTTP, c.headers, &mu, &wg, &client, &results)
+			go httpbench.MakeRequestAsync(c.url, c.useHTTP, c.headers, body, &mu, &wg, &client, &results)
 		}
 
 		var finished = durationCounter * c.count
@@ -131,9 +139,21 @@ func run(c config, w io.Writer) error {
 	wg.Wait()
 	s.Stop()
 
-	for _, r := range results {
-		fmt.Fprintln(os.Stdout, fmt.Sprintf("%s, %d, %v, %v", url, r.Status, r.Latency, r.Err))
-	}
+	stats := httpbench.CalculateStatistics(results)
+	fmt.Println()
+
+	fmt.Println("----------------------------------")
+	fmt.Println("Total Requests:", stats.TotalCalls)
+	fmt.Println("Total Time Taken:", stats.TotalTime)
+	fmt.Println("----------------------------------")
+	fmt.Println("fastest:", stats.FastestRequest)
+	fmt.Println("slowest:", stats.SlowestRequest)
+	fmt.Println("average:", stats.AvgTimePerRequest)
+	fmt.Println("----------------------------------")
+	fmt.Println("20x count:", stats.TwoHundredResponses)
+	fmt.Println("30x count:", stats.ThreeHundredResponses)
+	fmt.Println("40x count:", stats.FourHundredResponses)
+	fmt.Println("50x count:", stats.FiveHundredResponses)
 
 	return nil
 }
