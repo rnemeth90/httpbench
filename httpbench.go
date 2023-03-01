@@ -63,7 +63,7 @@ func MakeRequestAsync(url string, useHTTP bool, headers string, body []byte, mu 
 	httpResponse := HTTPResponse{}
 
 	if !strings.Contains(url, "http") {
-		url = parseURL(url, useHTTP)
+		url = ParseURL(url, useHTTP)
 	}
 
 	url = strings.ToLower(url)
@@ -74,7 +74,7 @@ func MakeRequestAsync(url string, useHTTP bool, headers string, body []byte, mu 
 	}
 
 	if headers != "" {
-		requestHeaders = parseHeaders(headers)
+		requestHeaders = ParseHeaders(headers)
 
 		for k, v := range requestHeaders {
 			request.Header.Set(k, v)
@@ -103,7 +103,7 @@ func MakeRequestAsync(url string, useHTTP bool, headers string, body []byte, mu 
 	*results = append(*results, httpResponse)
 }
 
-func parseURL(url string, useHTTP bool) string {
+func ParseURL(url string, useHTTP bool) string {
 	if !useHTTP {
 		return fmt.Sprintf("https://%s", strings.ToLower(url))
 	}
@@ -111,7 +111,7 @@ func parseURL(url string, useHTTP bool) string {
 	return fmt.Sprintf("http://%s", strings.ToLower(url))
 }
 
-func parseHeaders(headers string) map[string]string {
+func ParseHeaders(headers string) map[string]string {
 	m := make(map[string]string)
 
 	csvs := strings.Split(headers, ",")

@@ -23,7 +23,7 @@ If you need help, submit an issue
 - [x] timeout
 - [x] statistics
 - [ ] tests
-- [ ] body
+- [x] body
 - [ ] finish readme
 
 ## Version History
