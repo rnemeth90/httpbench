@@ -1,7 +1,10 @@
 package httpbench_test
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"reflect"
+	"sync"
 	"testing"
 
 	"github.com/rnemeth90/httpbench"
@@ -71,4 +74,25 @@ func TestParseHeaders(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMakeRequestAsync(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("host", "tester")
+		w.WriteHeader(http.StatusTeapot)
+	}))
+
+	results := []httpbench.HTTPResponse{}
+	client := http.Client{}
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	httpbench.MakeRequestAsync(server.URL, false, "", nil, &mu, &wg, &client, &results)
+
+	// populate a slice of httpbench.HTTPResponse (named "expect") with our expected results
+
+	// compare 'results' with 'expect'
+
+	// need table tests to test various cases
+
 }
