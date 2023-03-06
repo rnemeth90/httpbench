@@ -87,6 +87,7 @@ func TestMakeRequestAsync(t *testing.T) {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
+	wg.Add(1)
 	httpbench.MakeRequestAsync(server.URL, false, "", nil, &mu, &wg, &client, &results)
 
 	// populate a slice of httpbench.HTTPResponse (named "expect") with our expected results
