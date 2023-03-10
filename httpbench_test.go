@@ -90,10 +90,13 @@ func TestMakeRequestAsync(t *testing.T) {
 	wg.Add(1)
 	httpbench.MakeRequestAsync(server.URL, false, "", nil, &mu, &wg, &client, &results)
 
-	// populate a slice of httpbench.HTTPResponse (named "expect") with our expected results
+	expect := httpbench.HTTPResponse{
+		Latency: results[0].Latency, //this obviously isn't testing anything...
+		Status:  http.StatusTeapot,
+		Err:     nil,
+	}
 
-	// compare 'results' with 'expect'
-
-	// need table tests to test various cases
-
+	if !reflect.DeepEqual(results[0], expect) {
+		t.Errorf("expected: %v\ngot: %v\n", expect, results[0])
+	}
 }
