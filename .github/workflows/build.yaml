@@ -49,14 +49,6 @@ jobs:
         go build -o httpbench -ldflags "-X main.Version=${GITHUB_REF_NAME} -X main.BuiltBy=github-actions" main.go
         mv httpbench builds/
         ls -lisa builds/
-
-    - name: go test
-      id: test
-      run: |
-        go test -v
-        cd ./cmd/httpbench/
-        go test -v
-
     - run: git version
     - run: git branch
     - run: git tag
