@@ -3,12 +3,9 @@ package httpbench
 import (
 	"bytes"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -30,7 +27,7 @@ type Statistics struct {
 	FiveHundredResponses  int
 }
 
-func CreateHTTPClient(timeout int64, keepalives bool, compression bool) http.Client {
+func CreateHTTPClient(timeout int64, keepalives bool, compression bool) *http.Client {
 
 	t := &http.Transport{}
 
@@ -43,24 +40,15 @@ func CreateHTTPClient(timeout int64, keepalives bool, compression bool) http.Cli
 		t.DisableCompression = compression
 	}
 
-	return http.Client{
+	return &http.Client{
 		Timeout:   time.Second * time.Duration(timeout),
 		Transport: t,
 	}
 }
 
-// MakeRequest makes a HTTP request
-func MakeRequestAsync(url string, useHTTP bool, headers string, body []byte, mu *sync.Mutex, wg *sync.WaitGroup, client *http.Client, results *[]HTTPResponse) {
-	var requestHeaders map[string]string
-	defer wg.Done()
-	// client trace to log whether the request's underlying tcp connection was re-used
-	//clientTrace := &httptrace.ClientTrace{
-	//	GotConn: func(info httptrace.GotConnInfo) { log.Printf("conn was reused: %t", info.Reused) },
-	//}
-	//traceCtx := httptrace.WithClientTrace(context.Background(), clientTrace)
-
-	mu.Lock()
-	httpResponse := HTTPResponse{}
+// Dispatcher
+func dispatcher(reqChan chan *http.Request, requestCount int, useHTTP bool, url string, method string, body []byte, headers string) {
+	defer close(reqChan)
 
 	if !strings.Contains(url, "http") {
 		url = ParseURL(url, useHTTP)
@@ -68,46 +56,78 @@ func MakeRequestAsync(url string, useHTTP bool, headers string, body []byte, mu 
 
 	url = strings.ToLower(url)
 
-	request, err := http.NewRequest(http.MethodGet, url, bytes.NewBuffer(body))
-	if err != nil {
-		httpResponse.Err = err
+	for i := 0; i < requestCount; i++ {
+		req, err := http.NewRequest("GET", url, bytes.NewBuffer(body))
+		if err != nil {
+			log.Println(err)
+		}
+
+		var requestHeaders map[string]string
+		if headers != "" {
+			requestHeaders = ParseHeaders(headers)
+
+			for k, v := range requestHeaders {
+				req.Header.Set(k, v)
+			}
+		}
+		reqChan <- req
 	}
+}
 
-	if headers != "" {
-		requestHeaders = ParseHeaders(headers)
+// Worker Pool
+func workerPool(reqChan chan *http.Request, respChan chan HTTPResponse, maxConnections int, timeout int64, keepalives, compression bool) {
+	client := CreateHTTPClient(timeout, keepalives, compression)
+	for i := 0; i < maxConnections; i++ {
+		go worker(client, reqChan, respChan)
+	}
+}
 
-		for k, v := range requestHeaders {
-			request.Header.Set(k, v)
+// Worker
+func worker(client *http.Client, reqChan chan *http.Request, respChan chan HTTPResponse) {
+	for req := range reqChan {
+		start := time.Now()
+		httpResponse := HTTPResponse{}
+
+		resp, err := client.Transport.RoundTrip(req)
+		if err != nil {
+			httpResponse.Err = err
+		}
+		end := time.Since(start)
+		if err := resp.Body.Close(); err != nil {
+			log.Println(err)
+		}
+
+		httpResponse.Status = resp.StatusCode
+		httpResponse.Latency = end
+
+		respChan <- httpResponse
+	}
+}
+
+func BuildResults(requestCount int, respChan chan HTTPResponse) []HTTPResponse {
+	results := []HTTPResponse{}
+	var conns int64
+
+	for conns < int64(requestCount) {
+		select {
+		case r, ok := <-respChan:
+			if ok {
+				if r.Err != nil {
+					log.Println(r.Err.Error())
+				} else {
+					results = append(results, r)
+				}
+				conns++
+			}
 		}
 	}
-
-	start := time.Now()
-	response, err := client.Do(request)
-	if err != nil {
-		httpResponse.Err = err
-	}
-	if _, err := io.Copy(ioutil.Discard, response.Body); err != nil {
-		log.Fatal(err)
-	}
-	response.Body.Close()
-
-	end := time.Since(start)
-	status := response.StatusCode
-
-	httpResponse = HTTPResponse{
-		Latency: end,
-		Status:  status,
-	}
-	mu.Unlock()
-
-	*results = append(*results, httpResponse)
+	return results
 }
 
 func ParseURL(url string, useHTTP bool) string {
 	if !useHTTP {
 		return fmt.Sprintf("https://%s", strings.ToLower(url))
 	}
-
 	return fmt.Sprintf("http://%s", strings.ToLower(url))
 }
 
@@ -121,6 +141,5 @@ func ParseHeaders(headers string) map[string]string {
 			m[headers[i]] = headers[i+1]
 		}
 	}
-
 	return m
 }
