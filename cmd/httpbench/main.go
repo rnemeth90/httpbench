@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/briandowns/spinner"
@@ -104,15 +103,8 @@ func main() {
 
 func run(c config, w io.Writer) error {
 
-	results := make([]httpbench.HTTPResponse, 0)
-	var client http.Client
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
-	client = httpbench.CreateHTTPClient(c.timeout, c.keepalives, c.compression)
 	body := make([]byte, 0)
 	err := errors.New("")
-
 	if c.bodyFileName != "" {
 		body, err = ioutil.ReadFile(bodyFileName)
 		if err != nil {
@@ -122,21 +114,23 @@ func run(c config, w io.Writer) error {
 
 	color.Green("Making %d calls per second for %d seconds...", c.count, c.duration)
 
-	for durationCounter := 1; durationCounter <= duration; durationCounter++ {
-		for i := 0; i < count; i++ {
-			wg.Add(1)
-			go httpbench.MakeRequestAsync(c.url, c.useHTTP, c.headers, body, &mu, &wg, &client, &results)
-		}
+	// create channels: request chan, response chan,
+	respChan := make(chan httpbench.HTTPResponse, c.count)
+	reqChan := make(chan *http.Request, c.count)
 
-		var finished = durationCounter * c.count
-		color.Cyan("Finished sending %d requests...", finished)
-		time.Sleep(1 * time.Second)
-	}
+	// create dispatcher
+	httpbench.Dispatcher(reqChan, c.count, c.useHTTP, c.url, "GET", body, c.headers)
 
+	// create worker pool
+	httpbench.WorkerPool(reqChan, respChan, c.count, c.timeout, c.keepalives, c.compression)
+
+	// build results
+	results := httpbench.BuildResults(c.count, respChan)
+
+	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
 	s.Color("yellow")
 	s.Prefix = "Processing..."
 	s.Start() // Start the spinner
-	wg.Wait()
 	s.Stop()
 
 	stats := httpbench.CalculateStatistics(results)
