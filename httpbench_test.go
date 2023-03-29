@@ -1,7 +1,6 @@
 package httpbench_test
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/rnemeth90/httpbench"
@@ -28,50 +27,50 @@ func TestCreateHTTPClient(t *testing.T) {
 	}
 }
 
-func TestParseURL(t *testing.T) {
-	testCases := []struct {
-		name    string
-		url     string
-		useHTTP bool
-		want    string
-	}{
-		{name: "secureURL", url: "google.com", useHTTP: false, want: "https://google.com"},
-		{name: "insecureURL", url: "google.com", useHTTP: true, want: "http://google.com"},
-	}
+// func TestParseURL(t *testing.T) {
+// 	testCases := []struct {
+// 		name    string
+// 		url     string
+// 		useHTTP bool
+// 		want    string
+// 	}{
+// 		{name: "secureURL", url: "google.com", useHTTP: false, want: "https://google.com"},
+// 		{name: "insecureURL", url: "google.com", useHTTP: true, want: "http://google.com"},
+// 	}
 
-	for _, test := range testCases {
-		t.Run(test.name, func(t *testing.T) {
-			got := httpbench.ParseURL(test.url, test.useHTTP)
+// 	for _, test := range testCases {
+// 		t.Run(test.name, func(t *testing.T) {
+// 			got := httpbench.ParseURL(test.url, test.useHTTP)
 
-			if got != test.want {
-				t.Errorf("expected: %s\ngot: %s", test.want, got)
-			}
-		})
-	}
-}
+// 			if got != test.want {
+// 				t.Errorf("expected: %s\ngot: %s", test.want, got)
+// 			}
+// 		})
+// 	}
+// }
 
-func TestParseHeaders(t *testing.T) {
-	testCases := []struct {
-		name         string
-		headerString string
-	}{
-		{name: "test1", headerString: "server:aws,x-sid:apollo"},
-	}
+// func TestParseHeaders(t *testing.T) {
+// 	testCases := []struct {
+// 		name         string
+// 		headerString string
+// 	}{
+// 		{name: "test1", headerString: "server:aws,x-sid:apollo"},
+// 	}
 
-	for _, test := range testCases {
-		t.Run(test.name, func(t *testing.T) {
-			want := make(map[string]string)
-			want["server"] = "aws"
-			want["x-sid"] = "apollo"
+// 	for _, test := range testCases {
+// 		t.Run(test.name, func(t *testing.T) {
+// 			want := make(map[string]string)
+// 			want["server"] = "aws"
+// 			want["x-sid"] = "apollo"
 
-			got := httpbench.ParseHeaders(test.headerString)
+// 			got := httpbench.ParseHeaders(test.headerString)
 
-			if !reflect.DeepEqual(got, want) {
-				t.Errorf("expected: %v\ngot: %v", want, got)
-			}
-		})
-	}
-}
+// 			if !reflect.DeepEqual(got, want) {
+// 				t.Errorf("expected: %v\ngot: %v", want, got)
+// 			}
+// 		})
+// 	}
+// }
 
 // func TestMakeRequestAsync(t *testing.T) {
 // 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

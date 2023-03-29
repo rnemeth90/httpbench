@@ -27,7 +27,7 @@ type Statistics struct {
 	FiveHundredResponses  int
 }
 
-func CreateHTTPClient(timeout int64, keepalives bool, compression bool) *http.Client {
+func createHTTPClient(timeout int64, keepalives bool, compression bool) *http.Client {
 
 	t := &http.Transport{}
 
@@ -47,16 +47,19 @@ func CreateHTTPClient(timeout int64, keepalives bool, compression bool) *http.Cl
 }
 
 // Dispatcher
-func dispatcher(reqChan chan *http.Request, requestCount int, useHTTP bool, url string, method string, body []byte, headers string) {
+func Dispatcher(reqChan chan *http.Request, maxConnections int, useHTTP bool, url string, method string, body []byte, headers string) {
 	defer close(reqChan)
 
+	fmt.Println("Created dispatcher")
+	fmt.Println("Requests", maxConnections)
 	if !strings.Contains(url, "http") {
-		url = ParseURL(url, useHTTP)
+		url = parseURL(url, useHTTP)
 	}
 
 	url = strings.ToLower(url)
 
-	for i := 0; i < requestCount; i++ {
+	for i := 0; i < maxConnections; i++ {
+		fmt.Println(fmt.Sprintf("Writing request: %d to the channel\n", i))
 		req, err := http.NewRequest("GET", url, bytes.NewBuffer(body))
 		if err != nil {
 			log.Println(err)
@@ -64,7 +67,7 @@ func dispatcher(reqChan chan *http.Request, requestCount int, useHTTP bool, url 
 
 		var requestHeaders map[string]string
 		if headers != "" {
-			requestHeaders = ParseHeaders(headers)
+			requestHeaders = parseHeaders(headers)
 
 			for k, v := range requestHeaders {
 				req.Header.Set(k, v)
@@ -75,9 +78,10 @@ func dispatcher(reqChan chan *http.Request, requestCount int, useHTTP bool, url 
 }
 
 // Worker Pool
-func workerPool(reqChan chan *http.Request, respChan chan HTTPResponse, maxConnections int, timeout int64, keepalives, compression bool) {
-	client := CreateHTTPClient(timeout, keepalives, compression)
+func WorkerPool(reqChan chan *http.Request, respChan chan HTTPResponse, maxConnections int, timeout int64, keepalives, compression bool) {
+	client := createHTTPClient(timeout, keepalives, compression)
 	for i := 0; i < maxConnections; i++ {
+		fmt.Println("running", i)
 		go worker(client, reqChan, respChan)
 	}
 }
@@ -124,14 +128,14 @@ func BuildResults(requestCount int, respChan chan HTTPResponse) []HTTPResponse {
 	return results
 }
 
-func ParseURL(url string, useHTTP bool) string {
+func parseURL(url string, useHTTP bool) string {
 	if !useHTTP {
 		return fmt.Sprintf("https://%s", strings.ToLower(url))
 	}
 	return fmt.Sprintf("http://%s", strings.ToLower(url))
 }
 
-func ParseHeaders(headers string) map[string]string {
+func parseHeaders(headers string) map[string]string {
 	m := make(map[string]string)
 
 	csvs := strings.Split(headers, ",")
