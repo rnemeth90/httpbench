@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/fatih/color"
 )
 
 type HTTPResponse struct {
@@ -47,7 +49,7 @@ func CreateHTTPClient(timeout int64, keepalives bool, compression bool) *http.Cl
 }
 
 // Dispatcher
-func dispatcher(reqChan chan *http.Request, requestCount int, useHTTP bool, url string, method string, body []byte, headers string) {
+func Dispatcher(reqChan chan *http.Request, requestCount int, useHTTP bool, url string, method string, body []byte, headers string) {
 	defer close(reqChan)
 
 	if !strings.Contains(url, "http") {
@@ -56,6 +58,7 @@ func dispatcher(reqChan chan *http.Request, requestCount int, useHTTP bool, url 
 
 	url = strings.ToLower(url)
 
+	// create the requests
 	for i := 0; i < requestCount; i++ {
 		req, err := http.NewRequest("GET", url, bytes.NewBuffer(body))
 		if err != nil {
@@ -75,10 +78,16 @@ func dispatcher(reqChan chan *http.Request, requestCount int, useHTTP bool, url 
 }
 
 // Worker Pool
-func workerPool(reqChan chan *http.Request, respChan chan HTTPResponse, maxConnections int, timeout int64, keepalives, compression bool) {
+func WorkerPool(reqChan chan *http.Request, respChan chan HTTPResponse, duration int, maxConnections int, timeout int64, keepalives, compression bool) {
 	client := CreateHTTPClient(timeout, keepalives, compression)
-	for i := 0; i < maxConnections; i++ {
-		go worker(client, reqChan, respChan)
+	for durationCounter := 1; durationCounter <= duration; durationCounter++ {
+		for i := 0; i < maxConnections; i++ {
+			go worker(client, reqChan, respChan)
+		}
+
+		var finished = durationCounter * maxConnections
+		color.Cyan("Finished sending %d requests...", finished)
+		time.Sleep(1 * time.Second)
 	}
 }
 
@@ -102,6 +111,8 @@ func worker(client *http.Client, reqChan chan *http.Request, respChan chan HTTPR
 
 		respChan <- httpResponse
 	}
+
+	// build results here?
 }
 
 func BuildResults(requestCount int, respChan chan HTTPResponse) []HTTPResponse {
