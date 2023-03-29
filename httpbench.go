@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/fatih/color"
 )
 
 type HTTPResponse struct {
@@ -58,8 +60,8 @@ func Dispatcher(reqChan chan *http.Request, maxConnections int, useHTTP bool, ur
 
 	url = strings.ToLower(url)
 
-	for i := 0; i < maxConnections; i++ {
-		fmt.Println(fmt.Sprintf("Writing request: %d to the channel\n", i))
+	// create the requests
+	for i := 0; i < requestCount; i++ {
 		req, err := http.NewRequest("GET", url, bytes.NewBuffer(body))
 		if err != nil {
 			log.Println(err)
@@ -78,11 +80,16 @@ func Dispatcher(reqChan chan *http.Request, maxConnections int, useHTTP bool, ur
 }
 
 // Worker Pool
-func WorkerPool(reqChan chan *http.Request, respChan chan HTTPResponse, maxConnections int, timeout int64, keepalives, compression bool) {
+func WorkerPool(reqChan chan *http.Request, respChan chan HTTPResponse, duration int, maxConnections int, timeout int64, keepalives, compression bool) {
 	client := createHTTPClient(timeout, keepalives, compression)
-	for i := 0; i < maxConnections; i++ {
-		fmt.Println("running", i)
-		go worker(client, reqChan, respChan)
+	for durationCounter := 1; durationCounter <= duration; durationCounter++ {
+		for i := 0; i < maxConnections; i++ {
+			go worker(client, reqChan, respChan)
+		}
+
+		var finished = durationCounter * maxConnections
+		color.Cyan("Finished sending %d requests...", finished)
+		time.Sleep(1 * time.Second)
 	}
 }
 
@@ -106,6 +113,8 @@ func worker(client *http.Client, reqChan chan *http.Request, respChan chan HTTPR
 
 		respChan <- httpResponse
 	}
+
+	// build results here?
 }
 
 func BuildResults(requestCount int, respChan chan HTTPResponse) []HTTPResponse {

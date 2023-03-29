@@ -122,10 +122,12 @@ func run(c config, w io.Writer) error {
 	httpbench.Dispatcher(reqChan, c.count, c.useHTTP, c.url, "GET", body, c.headers)
 
 	// create worker pool
-	httpbench.WorkerPool(reqChan, respChan, c.count, c.timeout, c.keepalives, c.compression)
+	httpbench.WorkerPool(reqChan, respChan, c.duration, c.count, c.timeout, c.keepalives, c.compression)
 
 	// build results
 	results := httpbench.BuildResults(c.count, respChan)
+
+	fmt.Println(results)
 
 	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
 	s.Color("yellow")
