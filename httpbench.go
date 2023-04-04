@@ -49,20 +49,22 @@ func createHTTPClient(timeout int64, keepalives bool, compression bool) *http.Cl
 }
 
 // Dispatcher
-func Dispatcher(reqChan chan *http.Request, maxConnections int, useHTTP bool, url string, method string, body []byte, headers string) {
-	defer close(reqChan)
+func Dispatcher(reqChan chan *http.Request, requestCount int, duration int, useHTTP bool, url string, method string, body []byte, headers string) {
 
 	fmt.Println("Created dispatcher")
-	fmt.Println("Requests", maxConnections)
 	if !strings.Contains(url, "http") {
 		url = parseURL(url, useHTTP)
 	}
 
+	totalRequests := requestCount * duration
+	fmt.Printf("Dispatcher: Creating %d total requests\n", totalRequests)
+
 	url = strings.ToLower(url)
 
 	// create the requests
-	for i := 0; i < requestCount; i++ {
+	for i := 0; i < totalRequests; i++ {
 		req, err := http.NewRequest("GET", url, bytes.NewBuffer(body))
+
 		if err != nil {
 			log.Println(err)
 		}
@@ -81,6 +83,8 @@ func Dispatcher(reqChan chan *http.Request, maxConnections int, useHTTP bool, ur
 
 // Worker Pool
 func WorkerPool(reqChan chan *http.Request, respChan chan HTTPResponse, duration int, maxConnections int, timeout int64, keepalives, compression bool) {
+	fmt.Printf("WorkerPool: length of respChan: %d\n ", len(respChan))
+	fmt.Printf("WorkerPool: length of reqChan: %d\n", len(reqChan))
 	client := createHTTPClient(timeout, keepalives, compression)
 	for durationCounter := 1; durationCounter <= duration; durationCounter++ {
 		for i := 0; i < maxConnections; i++ {
@@ -95,6 +99,7 @@ func WorkerPool(reqChan chan *http.Request, respChan chan HTTPResponse, duration
 
 // Worker
 func worker(client *http.Client, reqChan chan *http.Request, respChan chan HTTPResponse) {
+	fmt.Printf("Worker: length of reqChan: %d\n", len(reqChan))
 	for req := range reqChan {
 		start := time.Now()
 		httpResponse := HTTPResponse{}
@@ -111,6 +116,8 @@ func worker(client *http.Client, reqChan chan *http.Request, respChan chan HTTPR
 		httpResponse.Status = resp.StatusCode
 		httpResponse.Latency = end
 
+		fmt.Println(httpResponse)
+
 		respChan <- httpResponse
 	}
 
@@ -118,6 +125,7 @@ func worker(client *http.Client, reqChan chan *http.Request, respChan chan HTTPR
 }
 
 func BuildResults(requestCount int, respChan chan HTTPResponse) []HTTPResponse {
+	fmt.Printf("BuildResults: length of respChan: %d\n", len(respChan))
 	results := []HTTPResponse{}
 	var conns int64
 

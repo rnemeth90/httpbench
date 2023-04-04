@@ -7,9 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"time"
 
-	"github.com/briandowns/spinner"
 	"github.com/fatih/color"
 	"github.com/rnemeth90/httpbench"
 	"github.com/spf13/pflag"
@@ -115,41 +113,30 @@ func run(c config, w io.Writer) error {
 	color.Green("Making %d calls per second for %d seconds...", c.count, c.duration)
 
 	// create channels: request chan, response chan,
-	respChan := make(chan httpbench.HTTPResponse, c.count)
-	reqChan := make(chan *http.Request, c.count)
+
+	numjobs := c.count * c.duration
+
+	fmt.Println("making channels of size:", numjobs)
+	respChan := make(chan httpbench.HTTPResponse, numjobs)
+	reqChan := make(chan *http.Request, numjobs)
 
 	// create dispatcher
-	httpbench.Dispatcher(reqChan, c.count, c.useHTTP, c.url, "GET", body, c.headers)
+	httpbench.Dispatcher(reqChan, c.count, c.duration, c.useHTTP, c.url, "GET", body, c.headers)
 
 	// create worker pool
 	httpbench.WorkerPool(reqChan, respChan, c.duration, c.count, c.timeout, c.keepalives, c.compression)
 
-	// build results
-	results := httpbench.BuildResults(c.count, respChan)
+	close(reqChan)
+	var resultslice []httpbench.HTTPResponse
 
-	fmt.Println(results)
+	for i := 1; i <= numjobs; i++ {
+		r := <-respChan
+		fmt.Println("Got value from respChan:", r)
+		resultslice = append(resultslice, r)
+	}
+	//close(respChan)
 
-	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
-	s.Color("yellow")
-	s.Prefix = "Processing..."
-	s.Start() // Start the spinner
-	s.Stop()
-
-	stats := httpbench.CalculateStatistics(results)
-	fmt.Println()
-
-	fmt.Println("----------------------------------")
-	fmt.Println("Total Requests:", stats.TotalCalls)
-	fmt.Println("Total Time Taken:", stats.TotalTime)
-	fmt.Println("----------------------------------")
-	fmt.Println("fastest:", stats.FastestRequest)
-	fmt.Println("slowest:", stats.SlowestRequest)
-	fmt.Println("average:", stats.AvgTimePerRequest)
-	fmt.Println("----------------------------------")
-	fmt.Println("20x count:", stats.TwoHundredResponses)
-	fmt.Println("30x count:", stats.ThreeHundredResponses)
-	fmt.Println("40x count:", stats.FourHundredResponses)
-	fmt.Println("50x count:", stats.FiveHundredResponses)
+	fmt.Println("length of result slice:", len(resultslice))
 
 	return nil
 }
