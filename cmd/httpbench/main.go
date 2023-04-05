@@ -100,7 +100,6 @@ func main() {
 }
 
 func run(c config, w io.Writer) error {
-
 	body := make([]byte, 0)
 	err := errors.New("")
 	if c.bodyFileName != "" {
@@ -112,11 +111,7 @@ func run(c config, w io.Writer) error {
 
 	color.Green("Making %d calls per second for %d seconds...", c.count, c.duration)
 
-	// create channels: request chan, response chan,
-
 	numjobs := c.count * c.duration
-
-	fmt.Println("making channels of size:", numjobs)
 	respChan := make(chan httpbench.HTTPResponse, numjobs)
 	reqChan := make(chan *http.Request, numjobs)
 
@@ -131,12 +126,14 @@ func run(c config, w io.Writer) error {
 
 	for i := 1; i <= numjobs; i++ {
 		r := <-respChan
-		fmt.Println("Got value from respChan:", r)
 		resultslice = append(resultslice, r)
 	}
-	//close(respChan)
+	close(respChan)
 
 	fmt.Println("length of result slice:", len(resultslice))
+	stats := httpbench.CalculateStatistics(resultslice)
+
+	fmt.Println("Average:", stats.AvgTimePerRequest)
 
 	return nil
 }
