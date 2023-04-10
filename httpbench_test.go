@@ -1,9 +1,7 @@
-package httpbench_test
+package httpbench
 
 import (
 	"testing"
-
-	"github.com/rnemeth90/httpbench"
 )
 
 func TestCreateHTTPClient(t *testing.T) {
@@ -18,7 +16,7 @@ func TestCreateHTTPClient(t *testing.T) {
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			got := httpbench.CreateHTTPClient(int64(test.timeout), test.keepalives, test.compression)
+			got := createHTTPClient(int64(test.timeout), test.keepalives, test.compression)
 
 			if int64(got.Timeout) != test.timeout {
 				t.Errorf("expected: %v\ngot: %v", test.timeout, got.Timeout)

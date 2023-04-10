@@ -111,6 +111,8 @@ func worker(client *http.Client, reqChan chan *http.Request, respChan chan HTTPR
 
 		respChan <- httpResponse
 	}
+	defer close(reqChan)
+	defer close(respChan)
 }
 
 func BuildResults(requestCount int, respChan chan HTTPResponse) []HTTPResponse {

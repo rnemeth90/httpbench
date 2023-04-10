@@ -96,7 +96,6 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-
 }
 
 func run(c config, w io.Writer) error {
@@ -121,19 +120,21 @@ func run(c config, w io.Writer) error {
 	// create worker pool
 	httpbench.WorkerPool(reqChan, respChan, c.duration, c.count, c.timeout, c.keepalives, c.compression)
 
-	close(reqChan)
+	//close(reqChan)
 	var resultslice []httpbench.HTTPResponse
 
 	for i := 1; i <= numjobs; i++ {
 		r := <-respChan
 		resultslice = append(resultslice, r)
 	}
-	close(respChan)
+	//close(respChan)
 
 	fmt.Println("length of result slice:", len(resultslice))
 	stats := httpbench.CalculateStatistics(resultslice)
 
 	fmt.Println("Average:", stats.AvgTimePerRequest)
-
+	fmt.Println("Fastest:", stats.FastestRequest)
+	fmt.Println("Slowest:", stats.SlowestRequest)
+	fmt.Println("Total Calls:", stats.TotalCalls)
 	return nil
 }
