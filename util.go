@@ -25,7 +25,7 @@ func CalculateStatistics(responses []HTTPResponse) Statistics {
 		switch v.Status {
 		case 200:
 			twoHundreds++
-		case 300:
+		case 300, 302:
 			threeHundreds++
 		case 400:
 			fourHundreds++

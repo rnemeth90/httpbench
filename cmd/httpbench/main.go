@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"runtime"
 
 	"github.com/fatih/color"
 	"github.com/rnemeth90/httpbench"
@@ -38,25 +39,34 @@ var (
 )
 
 func init() {
-	pflag.StringVarP(&url, "url", "u", "", "url to test")
+	pflag.StringVarP(&url, "url", "u", "", "url to send requests to")
 	pflag.IntVarP(&count, "requests", "r", 4, "count of requests per second")
-	pflag.IntVarP(&duration, "duration", "d", 10, "duration")
-	pflag.BoolVarP(&insecure, "insecure", "i", false, "insecure")
-	pflag.StringVarP(&headers, "headers", "h", "", "request headers <string:string>")
+	pflag.IntVarP(&duration, "duration", "d", 10, "duration (seconds)")
+	pflag.BoolVarP(&insecure, "insecure", "i", false, "use HTTP instead of HTTPS")
+	pflag.StringVarP(&headers, "headers", "h", "", "key/value request headers <string:string>")
 	pflag.StringVarP(&bodyFileName, "bodyFile", "b", "", "body file in json")
 	pflag.Int64VarP(&timeout, "timeout", "t", 10, "timeout")
-	pflag.BoolVarP(&keepalives, "keepalives", "k", true, "keepalives")
-	pflag.BoolVarP(&compression, "compression", "c", true, "compression")
+	pflag.BoolVarP(&keepalives, "keepalives", "k", true, "use keepalives")
+	pflag.BoolVarP(&compression, "compression", "c", true, "use compression")
 	pflag.Usage = usage
 }
 
 func usage() {
+	fmt.Println(`
+| |   | | | |       | |                   | |    
+| |__ | |_| |_ _ __ | |__   ___ _ __   ___| |__  
+| '_ \| __| __| '_ \| '_ \ / _ \ '_ \ / __| '_ \ 
+| | | | |_| |_| |_) | |_) |  __/ | | | (__| | | |
+|_| |_|\__|\__| .__/|_.__/ \___|_| |_|\___|_| |_|
+              | |                                
+              |_|                                
+	`)
 	fmt.Println(os.Args[0])
 	fmt.Println()
 
 	fmt.Println("Usage:")
 	fmt.Printf("  httpbench --url https://mywebsite.com\n")
-	fmt.Printf("  httpbench --url https://mywebsite.com --count 100\n\n")
+	fmt.Printf("  httpbench --url https://mywebsite.com --requests 100\n\n")
 
 	fmt.Println("Options:")
 	pflag.PrintDefaults()
@@ -65,6 +75,8 @@ func usage() {
 func main() {
 	pflag.Parse()
 	args := pflag.Args()
+	 
+	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	if url == "" && len(args) == 0 {
 		usage()
@@ -114,20 +126,16 @@ func run(c config, w io.Writer) error {
 	respChan := make(chan httpbench.HTTPResponse, numjobs)
 	reqChan := make(chan *http.Request, numjobs)
 
-	// create dispatcher
 	httpbench.Dispatcher(reqChan, c.count, c.duration, c.useHTTP, c.url, "GET", body, c.headers)
 
-	// create worker pool
 	httpbench.WorkerPool(reqChan, respChan, c.duration, c.count, c.timeout, c.keepalives, c.compression)
 
-	//close(reqChan)
 	var resultslice []httpbench.HTTPResponse
 
 	for i := 1; i <= numjobs; i++ {
 		r := <-respChan
 		resultslice = append(resultslice, r)
 	}
-	//close(respChan)
 
 	fmt.Println("length of result slice:", len(resultslice))
 	stats := httpbench.CalculateStatistics(resultslice)
@@ -135,6 +143,11 @@ func run(c config, w io.Writer) error {
 	fmt.Println("Average:", stats.AvgTimePerRequest)
 	fmt.Println("Fastest:", stats.FastestRequest)
 	fmt.Println("Slowest:", stats.SlowestRequest)
-	fmt.Println("Total Calls:", stats.TotalCalls)
+	fmt.Println("Total Calls:", stats.TotalCalls) 
+	fmt.Println()
+	fmt.Println("200s:",stats.TwoHundredResponses)
+	fmt.Println("300s:",stats.ThreeHundredResponses)
+	fmt.Println("400s:",stats.FourHundredResponses)
+	fmt.Println("500s:",stats.FiveHundredResponses)
 	return nil
 }
