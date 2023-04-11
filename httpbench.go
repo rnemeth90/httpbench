@@ -30,7 +30,6 @@ type Statistics struct {
 }
 
 func createHTTPClient(timeout int64, keepalives bool, compression bool) *http.Client {
-
 	t := &http.Transport{}
 
 	if !keepalives {
@@ -49,7 +48,16 @@ func createHTTPClient(timeout int64, keepalives bool, compression bool) *http.Cl
 }
 
 // Dispatcher
-func Dispatcher(reqChan chan *http.Request, requestCount int, duration int, useHTTP bool, url string, method string, body []byte, headers string) {
+func Dispatcher(
+	reqChan chan *http.Request,
+	requestCount int,
+	duration int,
+	useHTTP bool,
+	url string,
+	method string,
+	body []byte,
+	headers string,
+) {
 	if !strings.Contains(url, "http") {
 		url = parseURL(url, useHTTP)
 	}
@@ -60,7 +68,6 @@ func Dispatcher(reqChan chan *http.Request, requestCount int, duration int, useH
 	// create the requests
 	for i := 0; i < totalRequests; i++ {
 		req, err := http.NewRequest("GET", url, bytes.NewBuffer(body))
-
 		if err != nil {
 			log.Println(err)
 		}
@@ -78,14 +85,21 @@ func Dispatcher(reqChan chan *http.Request, requestCount int, duration int, useH
 }
 
 // Worker Pool
-func WorkerPool(reqChan chan *http.Request, respChan chan HTTPResponse, duration int, maxConnections int, timeout int64, keepalives, compression bool) {
+func WorkerPool(
+	reqChan chan *http.Request,
+	respChan chan HTTPResponse,
+	duration int,
+	maxConnections int,
+	timeout int64,
+	keepalives, compression bool,
+) {
 	client := createHTTPClient(timeout, keepalives, compression)
 	for durationCounter := 1; durationCounter <= duration; durationCounter++ {
 		for i := 0; i < maxConnections; i++ {
 			go worker(client, reqChan, respChan)
 		}
 
-		var finished = durationCounter * maxConnections
+		finished := durationCounter * maxConnections
 		color.Cyan("Finished sending %d requests...", finished)
 		time.Sleep(1 * time.Second)
 	}
