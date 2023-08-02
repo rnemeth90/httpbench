@@ -51,8 +51,7 @@ func init() {
 	pflag.Usage = usage
 }
 
-func usage() {
-	fmt.Println(`
+const header = `
 | |   | | | |       | |                   | |    
 | |__ | |_| |_ _ __ | |__   ___ _ __   ___| |__  
 | '_ \| __| __| '_ \| '_ \ / _ \ '_ \ / __| '_ \ 
@@ -60,9 +59,11 @@ func usage() {
 |_| |_|\__|\__| .__/|_.__/ \___|_| |_|\___|_| |_|
               | |                                
               |_|                                
-	`)
-	fmt.Println(os.Args[0])
-	fmt.Println()
+`
+
+func usage() {
+	fmt.Printf("%s", header)
+	fmt.Printf("%s\n", os.Args[0])
 
 	fmt.Println("Usage:")
 	fmt.Printf("  httpbench --url https://mywebsite.com\n")
@@ -75,7 +76,7 @@ func usage() {
 func main() {
 	pflag.Parse()
 	args := pflag.Args()
-	 
+
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	if url == "" && len(args) == 0 {
@@ -143,11 +144,11 @@ func run(c config, w io.Writer) error {
 	fmt.Println("Average:", stats.AvgTimePerRequest)
 	fmt.Println("Fastest:", stats.FastestRequest)
 	fmt.Println("Slowest:", stats.SlowestRequest)
-	fmt.Println("Total Calls:", stats.TotalCalls) 
+	fmt.Println("Total Calls:", stats.TotalCalls)
 	fmt.Println()
-	fmt.Println("200s:",stats.TwoHundredResponses)
-	fmt.Println("300s:",stats.ThreeHundredResponses)
-	fmt.Println("400s:",stats.FourHundredResponses)
-	fmt.Println("500s:",stats.FiveHundredResponses)
+	fmt.Println("200s:", stats.TwoHundredResponses)
+	fmt.Println("300s:", stats.ThreeHundredResponses)
+	fmt.Println("400s:", stats.FourHundredResponses)
+	fmt.Println("500s:", stats.FiveHundredResponses)
 	return nil
 }
