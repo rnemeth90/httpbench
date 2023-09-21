@@ -75,7 +75,7 @@ func usage() {
 func main() {
 	pflag.Parse()
 	args := pflag.Args()
-	 
+
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	if url == "" && len(args) == 0 {
@@ -113,11 +113,16 @@ func main() {
 func run(c config, w io.Writer) error {
 	body := make([]byte, 0)
 	err := errors.New("")
+
 	if c.bodyFileName != "" {
 		body, err = ioutil.ReadFile(bodyFileName)
 		if err != nil {
-			return err
+			return fmt.Errorf("Failed to read the body file: %v\n", err)
 		}
+	}
+
+	if !httpbench.IsValidURL(c.url) {
+		return errors.New("The provided URL is not valid. Please check and try again.")
 	}
 
 	color.Green("Making %d calls per second for %d seconds...", c.count, c.duration)
@@ -137,17 +142,18 @@ func run(c config, w io.Writer) error {
 		resultslice = append(resultslice, r)
 	}
 
-	fmt.Println("length of result slice:", len(resultslice))
 	stats := httpbench.CalculateStatistics(resultslice)
 
-	fmt.Println("Average:", stats.AvgTimePerRequest)
-	fmt.Println("Fastest:", stats.FastestRequest)
-	fmt.Println("Slowest:", stats.SlowestRequest)
-	fmt.Println("Total Calls:", stats.TotalCalls) 
+	fmt.Println("\nResults:")
+	fmt.Printf("  Average Response Time: %v\n", stats.AvgTimePerRequest)
+	fmt.Printf("  Fastest Response Time: %v\n", stats.FastestRequest)
+	fmt.Printf("  Slowest Response Time: %v\n", stats.SlowestRequest)
+	fmt.Printf("  Total Calls Made: %d\n", stats.TotalCalls)
 	fmt.Println()
-	fmt.Println("200s:",stats.TwoHundredResponses)
-	fmt.Println("300s:",stats.ThreeHundredResponses)
-	fmt.Println("400s:",stats.FourHundredResponses)
-	fmt.Println("500s:",stats.FiveHundredResponses)
+	fmt.Printf("  200s Responses: %d\n", stats.TwoHundredResponses)
+	fmt.Printf("  300s Responses: %d\n", stats.ThreeHundredResponses)
+	fmt.Printf("  400s Responses: %d\n", stats.FourHundredResponses)
+	fmt.Printf("  500s Responses: %d\n", stats.FiveHundredResponses)
+
 	return nil
 }

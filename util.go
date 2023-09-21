@@ -1,9 +1,15 @@
 package httpbench
 
 import (
+	"regexp"
 	"sort"
 	"time"
 )
+
+func IsValidURL(url string) bool {
+	var urlRegex = regexp.MustCompile(`^(https?|ftp):\/\/[^\s/$.?#].[^\s]*$`)
+	return urlRegex.MatchString(url)
+}
 
 func CalculateStatistics(responses []HTTPResponse) Statistics {
 	stats := Statistics{}
