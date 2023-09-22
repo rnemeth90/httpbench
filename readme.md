@@ -25,6 +25,20 @@ If you need help, submit an issue
 - [ ] tests
 - [x] body
 - [ ] finish readme
+- [x] support custom ports
+- [x] support common HTTP methods
+- [ ] allow user to specify number of concurrent connections or goroutines
+- [ ] custom user-agent string
+- [ ] change output format (json, csv, etc.)
+- [ ] proxy support
+- [ ] authentication
+- [ ] cookies support (send a cookie with a request)
+- [ ] cancellation on long requests (using a context)
+- [ ] skip SSL validation
+- [ ] override the host header
+- [ ] output version
+- [ ] verbose mode(?)
+
 
 ## Version History
 * 0.1

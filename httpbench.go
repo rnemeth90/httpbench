@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -33,10 +34,10 @@ type Statistics struct {
 
 var validHTTPMethods = map[string]bool{
 	"GET":    true,
-	"POST":   false,
-	"PUT":    false,
-	"DELETE": false,
-	"HEAD":   false,
+	"POST":   true,
+	"PUT":    true,
+	"DELETE": true,
+	"HEAD":   true,
 }
 
 func isValidMethod(method string) bool {
@@ -65,15 +66,21 @@ func createHTTPClient(timeout int64, keepalives bool, compression bool) *http.Cl
 func Dispatcher(reqChan chan *http.Request, requestCount int, duration int, useHTTP bool, url string, method string, body []byte, headers string) {
 	if !isValidMethod(method) {
 		log.Printf("Invalid HTTP Method: %s", method)
-		return
+		os.Exit(1)
 	}
 
 	if !strings.Contains(url, "http") {
 		url = parseURL(url, useHTTP)
 	}
 
+	parsedURL, err := url.Parse(url)
+	if err != nil {
+		log.Fatal("Invalid URL:", err)
+	}
+	parsedURL.Host = strings.ToLower(parsedURL.Host)
+	url = parsedURL.String()
+
 	totalRequests := requestCount * duration
-	url = strings.ToLower(url)
 	headerLines := strings.Split(headers, ",")
 
 	// create the requests
@@ -100,7 +107,7 @@ func Dispatcher(reqChan chan *http.Request, requestCount int, duration int, useH
 	close(reqChan)
 }
 
-// Worker Pool
+// worker pool
 func WorkerPool(reqChan chan *http.Request, respChan chan HTTPResponse, duration int, maxConnections int, timeout int64, keepalives, compression bool) {
 	var wg sync.WaitGroup
 	client := createHTTPClient(timeout, keepalives, compression)
@@ -111,7 +118,7 @@ func WorkerPool(reqChan chan *http.Request, respChan chan HTTPResponse, duration
 		}
 
 		var finished = durationCounter * maxConnections
-		color.Cyan("Finished sending %d requests...", finished)
+		color.Cyan("Finished sending %d requests per second...", finished)
 		time.Sleep(1 * time.Second)
 	}
 	wg.Wait()

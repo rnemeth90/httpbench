@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"runtime"
 
 	"github.com/fatih/color"
 	"github.com/rnemeth90/httpbench"
@@ -24,6 +23,7 @@ type config struct {
 	keepalives   bool
 	compression  bool
 	duration     int
+	method       string
 }
 
 var (
@@ -36,6 +36,7 @@ var (
 	keepalives   bool
 	compression  bool
 	duration     int
+	method       string
 )
 
 func init() {
@@ -44,6 +45,7 @@ func init() {
 	pflag.IntVarP(&duration, "duration", "d", 10, "duration (seconds)")
 	pflag.BoolVarP(&insecure, "insecure", "i", false, "use HTTP instead of HTTPS")
 	pflag.StringVarP(&headers, "headers", "h", "", "key/value request headers <string:string>")
+	pflag.StringVarP(&method, "method", "m", "GET", "http method to use")
 	pflag.StringVarP(&bodyFileName, "bodyFile", "b", "", "body file in json")
 	pflag.Int64VarP(&timeout, "timeout", "t", 10, "timeout")
 	pflag.BoolVarP(&keepalives, "keepalives", "k", true, "use keepalives")
@@ -76,8 +78,6 @@ func main() {
 	pflag.Parse()
 	args := pflag.Args()
 
-	runtime.GOMAXPROCS(runtime.NumCPU())
-
 	if url == "" && len(args) == 0 {
 		usage()
 		os.Exit(1)
@@ -102,6 +102,7 @@ func main() {
 		keepalives:   keepalives,
 		compression:  compression,
 		duration:     duration,
+		method:       method,
 	}
 
 	if err := run(c, os.Stdout); err != nil {
@@ -131,7 +132,7 @@ func run(c config, w io.Writer) error {
 	respChan := make(chan httpbench.HTTPResponse, numjobs)
 	reqChan := make(chan *http.Request, numjobs)
 
-	httpbench.Dispatcher(reqChan, c.count, c.duration, c.useHTTP, c.url, "GET", body, c.headers)
+	httpbench.Dispatcher(reqChan, c.count, c.duration, c.useHTTP, c.url, c.method, body, c.headers)
 
 	httpbench.WorkerPool(reqChan, respChan, c.duration, c.count, c.timeout, c.keepalives, c.compression)
 
