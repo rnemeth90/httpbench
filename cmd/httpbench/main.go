@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"runtime"
 
 	"github.com/fatih/color"
 	"github.com/rnemeth90/httpbench"
@@ -53,8 +54,7 @@ func init() {
 	pflag.Usage = usage
 }
 
-func usage() {
-	fmt.Println(`
+const header = `
 | |   | | | |       | |                   | |    
 | |__ | |_| |_ _ __ | |__   ___ _ __   ___| |__  
 | '_ \| __| __| '_ \| '_ \ / _ \ '_ \ / __| '_ \ 
@@ -62,9 +62,11 @@ func usage() {
 |_| |_|\__|\__| .__/|_.__/ \___|_| |_|\___|_| |_|
               | |                                
               |_|                                
-	`)
-	fmt.Println(os.Args[0])
-	fmt.Println()
+`
+
+func usage() {
+	fmt.Printf("%s", header)
+	fmt.Printf("%s\n", os.Args[0])
 
 	fmt.Println("Usage:")
 	fmt.Printf("  httpbench --url https://mywebsite.com\n")
@@ -77,6 +79,8 @@ func usage() {
 func main() {
 	pflag.Parse()
 	args := pflag.Args()
+
+	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	if url == "" && len(args) == 0 {
 		usage()
@@ -155,6 +159,5 @@ func run(c config, w io.Writer) error {
 	fmt.Printf("  300s Responses: %d\n", stats.ThreeHundredResponses)
 	fmt.Printf("  400s Responses: %d\n", stats.FourHundredResponses)
 	fmt.Printf("  500s Responses: %d\n", stats.FiveHundredResponses)
-
 	return nil
 }
