@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -63,34 +64,35 @@ func createHTTPClient(timeout int64, keepalives bool, compression bool) *http.Cl
 }
 
 // Dispatcher
-func Dispatcher(reqChan chan *http.Request, requestCount int, duration int, useHTTP bool, url string, method string, body []byte, headers string) {
+func Dispatcher(reqChan chan *http.Request, requestCount int, duration int, useHTTP bool, u string, method string, body []byte, headers string) {
 	if !isValidMethod(method) {
 		log.Printf("Invalid HTTP Method: %s", method)
 		os.Exit(1)
 	}
 
-	if !strings.Contains(url, "http") {
-		url = parseURL(url, useHTTP)
+	if !strings.Contains(u, "http") {
+		u = parseURL(u, useHTTP)
 	}
 
-	parsedURL, err := url.Parse(url)
+	parsedURL, err := url.Parse(u)
 	if err != nil {
 		log.Fatal("Invalid URL:", err)
 	}
 	parsedURL.Host = strings.ToLower(parsedURL.Host)
-	url = parsedURL.String()
+	u = parsedURL.String()
 
 	totalRequests := requestCount * duration
 	headerLines := strings.Split(headers, ",")
 
 	// create the requests
 	for i := 0; i < totalRequests; i++ {
-		req, err := http.NewRequest(method, url, bytes.NewBuffer(body))
+		req, err := http.NewRequest(method, u, bytes.NewBuffer(body))
 		if err != nil {
 			log.Println(err)
 			continue // if error, skip the current iteration and proceed with the next
 		}
 
+		// should we move this outside the loop that creates requests?
 		if headers != "" {
 			requestHeaders, err := parseHeaders(headerLines)
 			if err != nil {
