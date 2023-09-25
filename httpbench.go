@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -64,7 +65,7 @@ func createHTTPClient(timeout int64, keepalives bool, compression bool) *http.Cl
 }
 
 // Dispatcher
-func Dispatcher(reqChan chan *http.Request, requestCount int, duration int, useHTTP bool, u string, method string, body []byte, headers string) {
+func Dispatcher(reqChan chan *http.Request, goroutines int, requestCount int, duration int, useHTTP bool, u string, method string, body []byte, headers string) {
 	if !isValidMethod(method) {
 		log.Printf("Invalid HTTP Method: %s", method)
 		os.Exit(1)
@@ -81,11 +82,10 @@ func Dispatcher(reqChan chan *http.Request, requestCount int, duration int, useH
 	parsedURL.Host = strings.ToLower(parsedURL.Host)
 	u = parsedURL.String()
 
-	totalRequests := requestCount * duration
 	headerLines := strings.Split(headers, ",")
 
 	// create the requests
-	for i := 0; i < totalRequests; i++ {
+	for i := 0; i < goroutines; i++ {
 		req, err := http.NewRequest(method, u, bytes.NewBuffer(body))
 		if err != nil {
 			log.Println(err)
@@ -106,20 +106,22 @@ func Dispatcher(reqChan chan *http.Request, requestCount int, duration int, useH
 		}
 		reqChan <- req
 	}
+
 	close(reqChan)
 }
 
 // worker pool
-func WorkerPool(reqChan chan *http.Request, respChan chan HTTPResponse, duration int, maxConnections int, timeout int64, keepalives, compression bool) {
+func WorkerPool(reqChan chan *http.Request, respChan chan HTTPResponse, goroutines int, duration int, timeout int64, keepalives, compression bool) {
 	var wg sync.WaitGroup
 	client := createHTTPClient(timeout, keepalives, compression)
 	for durationCounter := 1; durationCounter <= duration; durationCounter++ {
-		for i := 0; i < maxConnections; i++ {
+		for i := 0; i < goroutines; i++ {
 			wg.Add(1)
 			go worker(client, reqChan, respChan, &wg)
+			fmt.Println("GoRoutines that currently exist: ", runtime.NumGoroutine())
 		}
 
-		var finished = durationCounter * maxConnections
+		var finished = durationCounter * goroutines
 		color.Cyan("Finished sending %d requests per second...", finished)
 		time.Sleep(1 * time.Second)
 	}

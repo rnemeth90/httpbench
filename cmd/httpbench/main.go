@@ -25,6 +25,7 @@ type config struct {
 	compression  bool
 	duration     int
 	method       string
+	goroutines   int
 }
 
 var (
@@ -38,12 +39,14 @@ var (
 	compression  bool
 	duration     int
 	method       string
+	goroutines   int
 )
 
 func init() {
 	pflag.StringVarP(&url, "url", "u", "", "url to send requests to")
 	pflag.IntVarP(&count, "requests", "r", 4, "count of requests per second")
 	pflag.IntVarP(&duration, "duration", "d", 10, "duration (seconds)")
+	pflag.IntVarP(&goroutines, "goroutines", "g", 10, "goroutines")
 	pflag.BoolVarP(&insecure, "insecure", "i", false, "use HTTP instead of HTTPS")
 	pflag.StringVarP(&headers, "headers", "h", "", "key/value request headers <string:string>")
 	pflag.StringVarP(&method, "method", "m", "GET", "http method to use")
@@ -107,6 +110,7 @@ func main() {
 		compression:  compression,
 		duration:     duration,
 		method:       method,
+		goroutines:   goroutines,
 	}
 
 	if err := run(c, os.Stdout); err != nil {
@@ -136,12 +140,18 @@ func run(c config, w io.Writer) error {
 	respChan := make(chan httpbench.HTTPResponse, numjobs)
 	reqChan := make(chan *http.Request, numjobs)
 
-	httpbench.Dispatcher(reqChan, c.count, c.duration, c.useHTTP, c.url, c.method, body, c.headers)
+	if c.goroutines > numjobs {
+		fmt.Fprintln(os.Stderr, "Number of goroutines exceeds the total number of requests. Adjusting goroutines to match request count.")
+		goroutines = numjobs
+	}
 
-	httpbench.WorkerPool(reqChan, respChan, c.duration, c.count, c.timeout, c.keepalives, c.compression)
+	httpbench.Dispatcher(reqChan, c.goroutines, c.count, c.duration, c.useHTTP, c.url, c.method, body, c.headers)
+
+	httpbench.WorkerPool(reqChan, respChan, c.goroutines, c.duration, c.timeout, c.keepalives, c.compression)
 
 	var resultslice []httpbench.HTTPResponse
 
+	// this is slow...
 	for i := 1; i <= numjobs; i++ {
 		r := <-respChan
 		resultslice = append(resultslice, r)
