@@ -16,7 +16,7 @@ func TestCreateHTTPClient(t *testing.T) {
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
-			got := createHTTPClient(int64(test.timeout), test.keepalives, test.compression)
+			got := createHTTPClient(int64(test.timeout), test.keepalives, test.compression, "")
 
 			if int64(got.Timeout) != test.timeout {
 				t.Errorf("expected: %v\ngot: %v", test.timeout, got.Timeout)

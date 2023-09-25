@@ -27,10 +27,10 @@ If you need help, submit an issue
 - [ ] finish readme
 - [x] support custom ports
 - [x] support common HTTP methods
-- [ ] allow user to specify number of concurrent connections or goroutines
-- [ ] custom user-agent string
+- [x] allow user to specify number of concurrent connections or goroutines
+- [x] custom user-agent string
 - [ ] change output format (json, csv, etc.)
-- [ ] proxy support
+- [x] proxy support
 - [ ] authentication
 - [ ] cookies support (send a cookie with a request)
 - [ ] cancellation on long requests (using a context)

@@ -46,7 +46,7 @@ func isValidMethod(method string) bool {
 	return validHTTPMethods[method]
 }
 
-func createHTTPClient(timeout int64, keepalives bool, compression bool) *http.Client {
+func createHTTPClient(timeout int64, keepalives bool, compression bool, proxyAddress string) *http.Client {
 	t := &http.Transport{}
 
 	if !keepalives {
@@ -56,6 +56,16 @@ func createHTTPClient(timeout int64, keepalives bool, compression bool) *http.Cl
 
 	if !compression {
 		t.DisableCompression = compression
+	}
+
+	if proxyAddress != "" {
+		parsedURL, err := url.Parse(proxyAddress)
+		if err != nil {
+			log.Fatal("Invalid proxy URL: ", err)
+			os.Exit(1)
+		}
+
+		t.Proxy = http.ProxyURL(parsedURL)
 	}
 
 	return &http.Client{
@@ -78,6 +88,7 @@ func Dispatcher(reqChan chan *http.Request, goroutines int, requestCount int, du
 	parsedURL, err := url.Parse(u)
 	if err != nil {
 		log.Fatal("Invalid URL:", err)
+		os.Exit(1)
 	}
 	parsedURL.Host = strings.ToLower(parsedURL.Host)
 	u = parsedURL.String()
@@ -111,9 +122,9 @@ func Dispatcher(reqChan chan *http.Request, goroutines int, requestCount int, du
 }
 
 // worker pool
-func WorkerPool(reqChan chan *http.Request, respChan chan HTTPResponse, goroutines int, duration int, timeout int64, keepalives, compression bool) {
+func WorkerPool(reqChan chan *http.Request, respChan chan HTTPResponse, goroutines int, duration int, timeout int64, keepalives, compression bool, proxyAddress string) {
 	var wg sync.WaitGroup
-	client := createHTTPClient(timeout, keepalives, compression)
+	client := createHTTPClient(timeout, keepalives, compression, proxyAddress)
 	for durationCounter := 1; durationCounter <= duration; durationCounter++ {
 		for i := 0; i < goroutines; i++ {
 			wg.Add(1)

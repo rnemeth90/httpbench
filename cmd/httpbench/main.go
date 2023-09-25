@@ -26,6 +26,7 @@ type config struct {
 	duration     int
 	method       string
 	goroutines   int
+	proxyAddress string
 }
 
 var (
@@ -40,15 +41,19 @@ var (
 	duration     int
 	method       string
 	goroutines   int
+	proxyAddress string
+
+	defaultGoRoutines = runtime.NumCPU()
 )
 
 func init() {
 	pflag.StringVarP(&url, "url", "u", "", "Target URL to which the HTTP requests will be sent.")
 	pflag.IntVarP(&count, "requests", "r", 4, "Number of requests to be sent per second.")
 	pflag.IntVarP(&duration, "duration", "d", 10, "Duration of the test in seconds.")
-	pflag.IntVarP(&goroutines, "goroutines", "g", 10, "Number of concurrent goroutines to spawn for handling requests.")
+	pflag.IntVarP(&goroutines, "goroutines", "g", defaultGoRoutines, "Number of concurrent goroutines to spawn for handling requests.")
 	pflag.BoolVarP(&insecure, "insecure", "i", false, "Use HTTP protocol instead of HTTPS. Useful for non-secure endpoints.")
 	pflag.StringVarP(&headers, "headers", "h", "", "Set request headers in a key:value format. Multiple headers can be separated by commas.")
+	pflag.StringVarP(&proxyAddress, "proxyAddress", "p", "", "The URL of a proxy to use for all requests.")
 	pflag.StringVarP(&method, "method", "m", "GET", "HTTP method to use for the requests (e.g., GET, POST, PUT).")
 	pflag.StringVarP(&bodyFileName, "bodyFile", "b", "", "Path to a JSON file containing the request body. Used for methods like POST or PUT.")
 	pflag.Int64VarP(&timeout, "timeout", "t", 10, "Timeout in seconds for each request.")
@@ -111,6 +116,7 @@ func main() {
 		duration:     duration,
 		method:       method,
 		goroutines:   goroutines,
+		proxyAddress: proxyAddress,
 	}
 
 	if err := run(c, os.Stdout); err != nil {
@@ -147,7 +153,7 @@ func run(c config, w io.Writer) error {
 
 	httpbench.Dispatcher(reqChan, c.goroutines, c.count, c.duration, c.useHTTP, c.url, c.method, body, c.headers)
 
-	httpbench.WorkerPool(reqChan, respChan, c.goroutines, c.duration, c.timeout, c.keepalives, c.compression)
+	httpbench.WorkerPool(reqChan, respChan, c.goroutines, c.duration, c.timeout, c.keepalives, c.compression, c.proxyAddress)
 
 	var resultslice []httpbench.HTTPResponse
 
