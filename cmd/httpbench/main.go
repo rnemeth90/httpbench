@@ -43,17 +43,17 @@ var (
 )
 
 func init() {
-	pflag.StringVarP(&url, "url", "u", "", "url to send requests to")
-	pflag.IntVarP(&count, "requests", "r", 4, "count of requests per second")
-	pflag.IntVarP(&duration, "duration", "d", 10, "duration (seconds)")
-	pflag.IntVarP(&goroutines, "goroutines", "g", 10, "goroutines")
-	pflag.BoolVarP(&insecure, "insecure", "i", false, "use HTTP instead of HTTPS")
-	pflag.StringVarP(&headers, "headers", "h", "", "key/value request headers <string:string>")
-	pflag.StringVarP(&method, "method", "m", "GET", "http method to use")
-	pflag.StringVarP(&bodyFileName, "bodyFile", "b", "", "body file in json")
-	pflag.Int64VarP(&timeout, "timeout", "t", 10, "timeout")
-	pflag.BoolVarP(&keepalives, "keepalives", "k", true, "use keepalives")
-	pflag.BoolVarP(&compression, "compression", "c", true, "use compression")
+	pflag.StringVarP(&url, "url", "u", "", "Target URL to which the HTTP requests will be sent.")
+	pflag.IntVarP(&count, "requests", "r", 4, "Number of requests to be sent per second.")
+	pflag.IntVarP(&duration, "duration", "d", 10, "Duration of the test in seconds.")
+	pflag.IntVarP(&goroutines, "goroutines", "g", 10, "Number of concurrent goroutines to spawn for handling requests.")
+	pflag.BoolVarP(&insecure, "insecure", "i", false, "Use HTTP protocol instead of HTTPS. Useful for non-secure endpoints.")
+	pflag.StringVarP(&headers, "headers", "h", "", "Set request headers in a key:value format. Multiple headers can be separated by commas.")
+	pflag.StringVarP(&method, "method", "m", "GET", "HTTP method to use for the requests (e.g., GET, POST, PUT).")
+	pflag.StringVarP(&bodyFileName, "bodyFile", "b", "", "Path to a JSON file containing the request body. Used for methods like POST or PUT.")
+	pflag.Int64VarP(&timeout, "timeout", "t", 10, "Timeout in seconds for each request.")
+	pflag.BoolVarP(&keepalives, "keepalives", "k", true, "Enable HTTP keep-alive, allowing re-use of TCP connections.")
+	pflag.BoolVarP(&compression, "compression", "c", true, "Enable request and response compression (usually gzip or deflate).")
 	pflag.Usage = usage
 }
 
