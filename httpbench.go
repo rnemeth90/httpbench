@@ -2,6 +2,7 @@ package httpbench
 
 import (
 	"bytes"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log"
@@ -46,7 +47,7 @@ func isValidMethod(method string) bool {
 	return validHTTPMethods[method]
 }
 
-func createHTTPClient(timeout int64, keepalives bool, compression bool, proxyAddress string) *http.Client {
+func createHTTPClient(timeout int64, keepalives bool, compression bool, proxyAddress, proxyUser, proxyPass string, skipSSLValidation bool) *http.Client {
 	t := &http.Transport{}
 
 	if !keepalives {
@@ -58,14 +59,22 @@ func createHTTPClient(timeout int64, keepalives bool, compression bool, proxyAdd
 		t.DisableCompression = compression
 	}
 
+	if skipSSLValidation {
+		t.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+
 	if proxyAddress != "" {
-		parsedURL, err := url.Parse(proxyAddress)
+		proxyURL, err := url.Parse(proxyAddress)
 		if err != nil {
 			log.Fatal("Invalid proxy URL: ", err)
 			os.Exit(1)
 		}
 
-		t.Proxy = http.ProxyURL(parsedURL)
+		t.Proxy = http.ProxyURL(proxyURL)
+
+		if proxyUser != "" && proxyPass != "" {
+			proxyURL.User = url.UserPassword(proxyUser, proxyPass)
+		}
 	}
 
 	return &http.Client{
@@ -75,14 +84,10 @@ func createHTTPClient(timeout int64, keepalives bool, compression bool, proxyAdd
 }
 
 // Dispatcher
-func Dispatcher(reqChan chan *http.Request, goroutines int, requestCount int, duration int, useHTTP bool, u string, method string, body []byte, headers string) {
+func Dispatcher(reqChan chan *http.Request, goroutines int, requestCount int, duration int, u string, method string, body []byte, headers string, username string, password string) {
 	if !isValidMethod(method) {
 		log.Printf("Invalid HTTP Method: %s", method)
 		os.Exit(1)
-	}
-
-	if !strings.Contains(u, "http") {
-		u = parseURL(u, useHTTP)
 	}
 
 	parsedURL, err := url.Parse(u)
@@ -101,6 +106,10 @@ func Dispatcher(reqChan chan *http.Request, goroutines int, requestCount int, du
 		if err != nil {
 			log.Println(err)
 			continue // if error, skip the current iteration and proceed with the next
+		}
+
+		if username != "" && password != "" {
+			req.SetBasicAuth(username, password)
 		}
 
 		// should we move this outside the loop that creates requests?
@@ -122,9 +131,9 @@ func Dispatcher(reqChan chan *http.Request, goroutines int, requestCount int, du
 }
 
 // worker pool
-func WorkerPool(reqChan chan *http.Request, respChan chan HTTPResponse, goroutines int, duration int, timeout int64, keepalives, compression bool, proxyAddress string) {
+func WorkerPool(reqChan chan *http.Request, respChan chan HTTPResponse, goroutines int, duration int, timeout int64, keepalives, compression bool, proxyAddress, proxyUser, proxyPass string, skipSSLValidation bool) {
 	var wg sync.WaitGroup
-	client := createHTTPClient(timeout, keepalives, compression, proxyAddress)
+	client := createHTTPClient(timeout, keepalives, compression, proxyAddress, proxyUser, proxyPass, skipSSLValidation)
 	for durationCounter := 1; durationCounter <= duration; durationCounter++ {
 		for i := 0; i < goroutines; i++ {
 			wg.Add(1)
@@ -181,13 +190,6 @@ func BuildResults(requestCount int, respChan chan HTTPResponse) []HTTPResponse {
 		}
 	}
 	return results
-}
-
-func parseURL(url string, useHTTP bool) string {
-	if !useHTTP {
-		return fmt.Sprintf("https://%s", strings.ToLower(url))
-	}
-	return fmt.Sprintf("http://%s", strings.ToLower(url))
 }
 
 func parseHeader(headerString string) (string, string, error) {

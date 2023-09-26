@@ -30,11 +30,10 @@ If you need help, submit an issue
 - [x] allow user to specify number of concurrent connections or goroutines
 - [x] custom user-agent string
 - [ ] change output format (json, csv, etc.)
-- [x] proxy support
-- [ ] authentication
-- [ ] cookies support (send a cookie with a request)
+- [x] proxy support/proxy authentication
+- [x] authentication
 - [ ] cancellation on long requests (using a context)
-- [ ] skip SSL validation
+- [x] skip SSL validation
 - [ ] override the host header
 - [ ] output version
 - [ ] verbose mode(?)

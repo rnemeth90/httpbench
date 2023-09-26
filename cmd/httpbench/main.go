@@ -17,7 +17,6 @@ import (
 type config struct {
 	url          string
 	count        int
-	useHTTP      bool
 	headers      string
 	bodyFileName string
 	timeout      int64
@@ -27,6 +26,11 @@ type config struct {
 	method       string
 	goroutines   int
 	proxyAddress string
+	proxyUser    string
+	proxyPass    string
+	username     string
+	password     string
+	insecure     bool
 }
 
 var (
@@ -42,6 +46,10 @@ var (
 	method       string
 	goroutines   int
 	proxyAddress string
+	proxyUser    string
+	proxyPass    string
+	username     string
+	password     string
 
 	defaultGoRoutines = runtime.NumCPU()
 )
@@ -51,14 +59,18 @@ func init() {
 	pflag.IntVarP(&count, "requests", "r", 4, "Number of requests to be sent per second.")
 	pflag.IntVarP(&duration, "duration", "d", 10, "Duration of the test in seconds.")
 	pflag.IntVarP(&goroutines, "goroutines", "g", defaultGoRoutines, "Number of concurrent goroutines to spawn for handling requests.")
-	pflag.BoolVarP(&insecure, "insecure", "i", false, "Use HTTP protocol instead of HTTPS. Useful for non-secure endpoints.")
+	pflag.BoolVarP(&insecure, "insecure", "i", false, "Skip SSL certificate validation")
 	pflag.StringVarP(&headers, "headers", "h", "", "Set request headers in a key:value format. Multiple headers can be separated by commas.")
 	pflag.StringVarP(&proxyAddress, "proxyAddress", "p", "", "The URL of a proxy to use for all requests.")
+	pflag.StringVarP(&proxyUser, "proxy-user", "", "", "Username for proxy authentication")
+	pflag.StringVarP(&proxyUser, "proxy-pass", "", "", "Password for proxy authentication")
 	pflag.StringVarP(&method, "method", "m", "GET", "HTTP method to use for the requests (e.g., GET, POST, PUT).")
 	pflag.StringVarP(&bodyFileName, "bodyFile", "b", "", "Path to a JSON file containing the request body. Used for methods like POST or PUT.")
 	pflag.Int64VarP(&timeout, "timeout", "t", 10, "Timeout in seconds for each request.")
 	pflag.BoolVarP(&keepalives, "keepalives", "k", true, "Enable HTTP keep-alive, allowing re-use of TCP connections.")
 	pflag.BoolVarP(&compression, "compression", "c", true, "Enable request and response compression (usually gzip or deflate).")
+	pflag.StringVarP(&username, "username", "", "", "Username for URL authentication")
+	pflag.StringVarP(&password, "password", "", "", "Password for URL authentication")
 	pflag.Usage = usage
 }
 
@@ -107,7 +119,6 @@ func main() {
 	c := config{
 		url:          url,
 		count:        count,
-		useHTTP:      insecure,
 		headers:      headers,
 		bodyFileName: bodyFileName,
 		timeout:      timeout,
@@ -117,6 +128,11 @@ func main() {
 		method:       method,
 		goroutines:   goroutines,
 		proxyAddress: proxyAddress,
+		proxyUser:    proxyUser,
+		proxyPass:    proxyPass,
+		username:     username,
+		password:     password,
+		insecure:     insecure,
 	}
 
 	if err := run(c, os.Stdout); err != nil {
@@ -151,9 +167,9 @@ func run(c config, w io.Writer) error {
 		goroutines = numjobs
 	}
 
-	httpbench.Dispatcher(reqChan, c.goroutines, c.count, c.duration, c.useHTTP, c.url, c.method, body, c.headers)
+	httpbench.Dispatcher(reqChan, c.goroutines, c.count, c.duration, c.url, c.method, body, c.headers, c.username, c.password)
 
-	httpbench.WorkerPool(reqChan, respChan, c.goroutines, c.duration, c.timeout, c.keepalives, c.compression, c.proxyAddress)
+	httpbench.WorkerPool(reqChan, respChan, c.goroutines, c.duration, c.timeout, c.keepalives, c.compression, c.proxyAddress, c.proxyUser, c.proxyPass, c.insecure)
 
 	var resultslice []httpbench.HTTPResponse
 
