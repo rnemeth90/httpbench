@@ -32,7 +32,7 @@ If you need help, submit an issue
 - [ ] change output format (json, csv, etc.)
 - [x] proxy support/proxy authentication
 - [x] authentication
-- [ ] cancellation on long requests (using a context)
+- [x] cancellation on long requests (using a context)
 - [x] skip SSL validation
 - [ ] override the host header
 - [ ] output version

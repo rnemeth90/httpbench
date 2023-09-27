@@ -167,7 +167,7 @@ func run(c config, w io.Writer) error {
 		goroutines = numjobs
 	}
 
-	httpbench.Dispatcher(reqChan, c.goroutines, c.count, c.duration, c.url, c.method, body, c.headers, c.username, c.password)
+	httpbench.Dispatcher(reqChan, c.goroutines, c.count, c.url, c.method, body, c.headers, c.username, c.password)
 
 	httpbench.WorkerPool(reqChan, respChan, c.goroutines, c.duration, c.timeout, c.keepalives, c.compression, c.proxyAddress, c.proxyUser, c.proxyPass, c.insecure)
 

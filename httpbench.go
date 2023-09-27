@@ -24,15 +24,15 @@ type HTTPResponse struct {
 }
 
 type Statistics struct {
-	TotalCalls            int
-	TotalTime             time.Duration
-	AvgTimePerRequest     time.Duration
-	FastestRequest        time.Duration
-	SlowestRequest        time.Duration
-	TwoHundredResponses   int
-	ThreeHundredResponses int
-	FourHundredResponses  int
-	FiveHundredResponses  int
+	TotalCalls            int           `json:"total_calls"`
+	TotalTime             time.Duration `json:"total_time"`
+	AvgTimePerRequest     time.Duration `json:"avg_time_per_request"`
+	FastestRequest        time.Duration `json:"fastest_request"`
+	SlowestRequest        time.Duration `json:"slowest_request"`
+	TwoHundredResponses   int           `json:"two_hundreds"`
+	ThreeHundredResponses int           `json:"three_hundreds"`
+	FourHundredResponses  int           `json:"four_hundreds"`
+	FiveHundredResponses  int           `json:"five_hundreds"`
 }
 
 var validHTTPMethods = map[string]bool{
@@ -84,7 +84,7 @@ func createHTTPClient(timeout int64, keepalives bool, compression bool, proxyAdd
 }
 
 // Dispatcher
-func Dispatcher(reqChan chan *http.Request, goroutines int, requestCount int, duration int, u string, method string, body []byte, headers string, username string, password string) {
+func Dispatcher(reqChan chan *http.Request, goroutines int, requestCount int, u string, method string, body []byte, headers string, username string, password string) {
 	if !isValidMethod(method) {
 		log.Printf("Invalid HTTP Method: %s", method)
 		os.Exit(1)
