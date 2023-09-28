@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -51,7 +50,6 @@ func createHTTPClient(timeout int64, keepalives bool, compression bool, proxyAdd
 	t := &http.Transport{}
 
 	if !keepalives {
-		t.MaxConnsPerHost = -1
 		t.DisableKeepAlives = true
 	}
 
@@ -84,7 +82,7 @@ func createHTTPClient(timeout int64, keepalives bool, compression bool, proxyAdd
 }
 
 // Dispatcher
-func Dispatcher(reqChan chan *http.Request, goroutines int, requestCount int, u string, method string, body []byte, headers string, username string, password string) {
+func Dispatcher(reqChan chan *http.Request, duration int, requestsPerSecond int, u string, method string, body []byte, headers string, username string, password string) {
 	if !isValidMethod(method) {
 		log.Printf("Invalid HTTP Method: %s", method)
 		os.Exit(1)
@@ -95,13 +93,15 @@ func Dispatcher(reqChan chan *http.Request, goroutines int, requestCount int, u 
 		log.Fatal("Invalid URL:", err)
 		os.Exit(1)
 	}
+
 	parsedURL.Host = strings.ToLower(parsedURL.Host)
 	u = parsedURL.String()
 
 	headerLines := strings.Split(headers, ",")
 
 	// create the requests
-	for i := 0; i < goroutines; i++ {
+	totalRequests := requestsPerSecond * duration
+	for i := 0; i < totalRequests; i++ {
 		req, err := http.NewRequest(method, u, bytes.NewBuffer(body))
 		if err != nil {
 			log.Println(err)
@@ -131,18 +131,17 @@ func Dispatcher(reqChan chan *http.Request, goroutines int, requestCount int, u 
 }
 
 // worker pool
-func WorkerPool(reqChan chan *http.Request, respChan chan HTTPResponse, goroutines int, duration int, timeout int64, keepalives, compression bool, proxyAddress, proxyUser, proxyPass string, skipSSLValidation bool) {
+func WorkerPool(reqChan chan *http.Request, respChan chan HTTPResponse, goroutines int, requestsPerSecond int, duration int, timeout int64, keepalives, compression bool, proxyAddress, proxyUser, proxyPass string, skipSSLValidation bool) {
 	var wg sync.WaitGroup
 	client := createHTTPClient(timeout, keepalives, compression, proxyAddress, proxyUser, proxyPass, skipSSLValidation)
 	for durationCounter := 1; durationCounter <= duration; durationCounter++ {
 		for i := 0; i < goroutines; i++ {
 			wg.Add(1)
 			go worker(client, reqChan, respChan, &wg)
-			fmt.Println("GoRoutines that currently exist: ", runtime.NumGoroutine())
 		}
 
-		var finished = durationCounter * goroutines
-		color.Cyan("Finished sending %d requests per second...", finished)
+		var finished = durationCounter * requestsPerSecond
+		color.Cyan("Finished sending %d requests...", finished)
 		time.Sleep(1 * time.Second)
 	}
 	wg.Wait()
@@ -170,26 +169,6 @@ func worker(client *http.Client, reqChan chan *http.Request, respChan chan HTTPR
 
 		respChan <- httpResponse
 	}
-}
-
-func BuildResults(requestCount int, respChan chan HTTPResponse) []HTTPResponse {
-	results := make([]HTTPResponse, 0, requestCount)
-	var conns int64
-
-	for conns < int64(requestCount) {
-		select {
-		case r, ok := <-respChan:
-			if ok {
-				if r.Err != nil {
-					log.Println(r.Err.Error())
-				} else {
-					results = append(results, r)
-				}
-				conns++
-			}
-		}
-	}
-	return results
 }
 
 func parseHeader(headerString string) (string, string, error) {

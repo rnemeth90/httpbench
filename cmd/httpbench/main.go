@@ -15,48 +15,48 @@ import (
 )
 
 type config struct {
-	url          string
-	count        int
-	headers      string
-	bodyFileName string
-	timeout      int64
-	keepalives   bool
-	compression  bool
-	duration     int
-	method       string
-	goroutines   int
-	proxyAddress string
-	proxyUser    string
-	proxyPass    string
-	username     string
-	password     string
-	insecure     bool
+	url               string
+	requestsPerSecond int
+	headers           string
+	bodyFileName      string
+	timeout           int64
+	keepalives        bool
+	compression       bool
+	duration          int
+	method            string
+	goroutines        int
+	proxyAddress      string
+	proxyUser         string
+	proxyPass         string
+	username          string
+	password          string
+	insecure          bool
 }
 
 var (
-	url          string
-	count        int
-	insecure     bool
-	headers      string
-	bodyFileName string
-	timeout      int64
-	keepalives   bool
-	compression  bool
-	duration     int
-	method       string
-	goroutines   int
-	proxyAddress string
-	proxyUser    string
-	proxyPass    string
-	username     string
-	password     string
+	url               string
+	requestsPerSecond int
+	insecure          bool
+	headers           string
+	bodyFileName      string
+	timeout           int64
+	keepalives        bool
+	compression       bool
+	duration          int
+	method            string
+	goroutines        int
+	proxyAddress      string
+	proxyUser         string
+	proxyPass         string
+	username          string
+	password          string
 
 	defaultGoRoutines = runtime.NumCPU()
 )
 
 func init() {
 	pflag.StringVarP(&url, "url", "u", "", "Target URL to which the HTTP requests will be sent.")
-	pflag.IntVarP(&count, "requests", "r", 4, "Number of requests to be sent per second.")
+	pflag.IntVarP(&requestsPerSecond, "rps", "r", 4, "Number of requests to be sent per second.")
 	pflag.IntVarP(&duration, "duration", "d", 10, "Duration of the test in seconds.")
 	pflag.IntVarP(&goroutines, "goroutines", "g", defaultGoRoutines, "Number of concurrent goroutines to spawn for handling requests.")
 	pflag.BoolVarP(&insecure, "insecure", "i", false, "Skip SSL certificate validation")
@@ -68,7 +68,7 @@ func init() {
 	pflag.StringVarP(&bodyFileName, "bodyFile", "b", "", "Path to a JSON file containing the request body. Used for methods like POST or PUT.")
 	pflag.Int64VarP(&timeout, "timeout", "t", 10, "Timeout in seconds for each request.")
 	pflag.BoolVarP(&keepalives, "keepalives", "k", true, "Enable HTTP keep-alive, allowing re-use of TCP connections.")
-	pflag.BoolVarP(&compression, "compression", "c", true, "Enable request and response compression (usually gzip or deflate).")
+	pflag.BoolVarP(&compression, "compression", "c", true, "Enable request and response compression.")
 	pflag.StringVarP(&username, "username", "", "", "Username for URL authentication")
 	pflag.StringVarP(&password, "password", "", "", "Password for URL authentication")
 	pflag.Usage = usage
@@ -117,22 +117,22 @@ func main() {
 	}
 
 	c := config{
-		url:          url,
-		count:        count,
-		headers:      headers,
-		bodyFileName: bodyFileName,
-		timeout:      timeout,
-		keepalives:   keepalives,
-		compression:  compression,
-		duration:     duration,
-		method:       method,
-		goroutines:   goroutines,
-		proxyAddress: proxyAddress,
-		proxyUser:    proxyUser,
-		proxyPass:    proxyPass,
-		username:     username,
-		password:     password,
-		insecure:     insecure,
+		url:               url,
+		requestsPerSecond: requestsPerSecond,
+		headers:           headers,
+		bodyFileName:      bodyFileName,
+		timeout:           timeout,
+		keepalives:        keepalives,
+		compression:       compression,
+		duration:          duration,
+		method:            method,
+		goroutines:        goroutines,
+		proxyAddress:      proxyAddress,
+		proxyUser:         proxyUser,
+		proxyPass:         proxyPass,
+		username:          username,
+		password:          password,
+		insecure:          insecure,
 	}
 
 	if err := run(c, os.Stdout); err != nil {
@@ -156,9 +156,9 @@ func run(c config, w io.Writer) error {
 		return errors.New("The provided URL is not valid. Please check and try again.")
 	}
 
-	color.Green("Making %d calls per second for %d seconds...", c.count, c.duration)
+	color.Green("Making %d calls per second for %d seconds...", c.requestsPerSecond, c.duration)
 
-	numjobs := c.count * c.duration
+	numjobs := c.requestsPerSecond * c.duration
 	respChan := make(chan httpbench.HTTPResponse, numjobs)
 	reqChan := make(chan *http.Request, numjobs)
 
@@ -167,9 +167,9 @@ func run(c config, w io.Writer) error {
 		goroutines = numjobs
 	}
 
-	httpbench.Dispatcher(reqChan, c.goroutines, c.count, c.url, c.method, body, c.headers, c.username, c.password)
+	httpbench.Dispatcher(reqChan, c.duration, c.requestsPerSecond, c.url, c.method, body, c.headers, c.username, c.password)
 
-	httpbench.WorkerPool(reqChan, respChan, c.goroutines, c.duration, c.timeout, c.keepalives, c.compression, c.proxyAddress, c.proxyUser, c.proxyPass, c.insecure)
+	httpbench.WorkerPool(reqChan, respChan, c.goroutines, c.requestsPerSecond, c.duration, c.timeout, c.keepalives, c.compression, c.proxyAddress, c.proxyUser, c.proxyPass, c.insecure)
 
 	var resultslice []httpbench.HTTPResponse
 
