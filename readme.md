@@ -37,6 +37,7 @@ If you need help, submit an issue
 - [ ] override the host header
 - [ ] output version
 - [ ] verbose mode(?)
+- [ ] improve usage() function
 
 
 ## Version History

@@ -55,6 +55,8 @@ var (
 )
 
 func init() {
+	pflag.SetInterspersed(false) // don't allow flags to be interspersed with positional args for POSIX compliance
+
 	pflag.StringVarP(&url, "url", "u", "", "Target URL to which the HTTP requests will be sent.")
 	pflag.IntVarP(&requestsPerSecond, "rps", "r", 4, "Number of requests to be sent per second.")
 	pflag.IntVarP(&duration, "duration", "d", 10, "Duration of the test in seconds.")
@@ -63,14 +65,15 @@ func init() {
 	pflag.StringVarP(&headers, "headers", "h", "", "Set request headers in a key:value format. Multiple headers can be separated by commas.")
 	pflag.StringVarP(&proxyAddress, "proxyAddress", "p", "", "The URL of a proxy to use for all requests.")
 	pflag.StringVarP(&proxyUser, "proxy-user", "", "", "Username for proxy authentication")
-	pflag.StringVarP(&proxyUser, "proxy-pass", "", "", "Password for proxy authentication")
+	pflag.StringVarP(&proxyPass, "proxy-pass", "", "", "Password for proxy authentication")
 	pflag.StringVarP(&method, "method", "m", "GET", "HTTP method to use for the requests (e.g., GET, POST, PUT).")
 	pflag.StringVarP(&bodyFileName, "bodyFile", "b", "", "Path to a JSON file containing the request body. Used for methods like POST or PUT.")
 	pflag.Int64VarP(&timeout, "timeout", "t", 10, "Timeout in seconds for each request.")
 	pflag.BoolVarP(&keepalives, "keepalives", "k", true, "Enable HTTP keep-alive, allowing re-use of TCP connections.")
 	pflag.BoolVarP(&compression, "compression", "c", true, "Enable request and response compression.")
-	pflag.StringVarP(&username, "username", "", "", "Username for URL authentication")
-	pflag.StringVarP(&password, "password", "", "", "Password for URL authentication")
+	pflag.StringVarP(&username, "username", "", "", "Username for basic auth to the endpoint")
+	pflag.StringVarP(&password, "password", "", "", "Password for basic auth to the endpoint")
+
 	pflag.Usage = usage
 }
 
@@ -86,11 +89,28 @@ const header = `
 
 func usage() {
 	fmt.Printf("%s", header)
-	fmt.Printf("%s\n", os.Args[0])
 
 	fmt.Println("Usage:")
-	fmt.Printf("  httpbench --url https://mywebsite.com\n")
-	fmt.Printf("  httpbench --url https://mywebsite.com --requests 100\n\n")
+	fmt.Printf("  Basic use-case:\n")
+	fmt.Printf("    httpbench -u, --url https://mywebsite.com\n\n")
+
+	fmt.Printf("  Specify number of requests per second and duration:\n")
+	fmt.Printf("    httpbench -u https://mywebsite.com -r, --rps 10 -d, --duration 30\n\n")
+
+	fmt.Printf("  Making POST requests with a body file:\n")
+	fmt.Printf("    httpbench -u https://mywebsite.com/api/posts -m, --method POST -b, --bodyFile /path/to/file.json\n\n")
+
+	fmt.Printf("  Adding request headers:\n")
+	fmt.Printf("    httpbench -u https://mywebsite.com -h, --headers \"Authorization:Bearer XYZ,Content-Type:application/json\"\n\n")
+
+	fmt.Printf("  Using proxy with authentication:\n")
+	fmt.Printf("    httpbench -u https://mywebsite.com -p, --proxyAddress http://proxy.com:8080 --proxy-user myuser --proxy-pass mypass\n\n")
+
+	fmt.Printf("  Disabling keep-alive:\n")
+	fmt.Printf("    httpbench -u https://mywebsite.com -k, --keepalives=false\n\n")
+
+	fmt.Printf("  Skipping SSL validation:\n")
+	fmt.Printf("    httpbench -u https://mywebsite.com -i, --insecure\n\n")
 
 	fmt.Println("Options:")
 	pflag.PrintDefaults()
@@ -99,8 +119,6 @@ func usage() {
 func main() {
 	pflag.Parse()
 	args := pflag.Args()
-
-	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	if url == "" && len(args) == 0 {
 		usage()
@@ -114,6 +132,16 @@ func main() {
 
 	if len(args) == 1 {
 		url = args[0]
+	}
+
+	if proxyPass != "" && (proxyUser == "" || proxyAddress == "") {
+		fmt.Println("Specifying a proxy password must be accompanied by a proxy username and address.")
+		os.Exit(1)
+	}
+
+	if proxyUser != "" && (proxyPass == "" || proxyAddress == "") {
+		fmt.Println("Specifying a proxy username must be accompanied by a proxy password and address.")
+		os.Exit(1)
 	}
 
 	c := config{

@@ -97,9 +97,6 @@ func Dispatcher(reqChan chan *http.Request, duration int, requestsPerSecond int,
 	parsedURL.Host = strings.ToLower(parsedURL.Host)
 	u = parsedURL.String()
 
-	headerLines := strings.Split(headers, ",")
-
-	// create the requests
 	totalRequests := requestsPerSecond * duration
 	for i := 0; i < totalRequests; i++ {
 		req, err := http.NewRequest(method, u, bytes.NewBuffer(body))
@@ -112,22 +109,30 @@ func Dispatcher(reqChan chan *http.Request, duration int, requestsPerSecond int,
 			req.SetBasicAuth(username, password)
 		}
 
-		// should we move this outside the loop that creates requests?
 		if headers != "" {
-			requestHeaders, err := parseHeaders(headerLines)
-			if err != nil {
-				log.Printf("failed to parse headers: %s", err)
-				continue
-			}
+			headerLines := strings.Split(headers, ",")
 
-			for k, v := range requestHeaders {
-				req.Header.Set(k, v)
+			if err := setHeaders(req, headerLines); err != nil {
+				log.Printf("%s\n", err)
+				continue // continue with the next request
 			}
 		}
 		reqChan <- req
 	}
 
 	close(reqChan)
+}
+
+func setHeaders(r *http.Request, headers []string) error {
+	requestHeaders, err := parseHeaders(headers)
+	if err != nil {
+		return errors.New(fmt.Sprintf("failed to parse headers: %s", err))
+	}
+
+	for k, v := range requestHeaders {
+		r.Header.Set(k, v)
+	}
+	return nil
 }
 
 // worker pool
