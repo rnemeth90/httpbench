@@ -66,7 +66,20 @@ If you need help or find a bug, submit an issue
 - [x] statistics
 - [x] tests (we don't have 100% code coverage...)
 - [x] body
-- [x] finish readme
+- [ ] finish readme
+- [x] support custom ports
+- [x] support common HTTP methods
+- [x] allow user to specify number of concurrent connections or goroutines
+- [x] custom user-agent string
+- [ ] change output format (json, csv, etc.)
+- [x] proxy support/proxy authentication
+- [x] authentication
+- [x] cancellation on long requests (using a context)
+- [x] skip SSL validation
+- [ ] override the host header
+- [ ] output version
+- [ ] verbose mode(?)
+- [ ] improve usage() function
 
 ## Version History
 * 1.0.0

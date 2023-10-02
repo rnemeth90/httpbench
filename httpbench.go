@@ -2,14 +2,18 @@ package httpbench
 
 import (
 	"bytes"
+	"crypto/tls"
+	"errors"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/fatih/color"
 )
 
 type HTTPResponse struct {
@@ -19,23 +23,33 @@ type HTTPResponse struct {
 }
 
 type Statistics struct {
-	TotalCalls            int
-	TotalTime             time.Duration
-	AvgTimePerRequest     time.Duration
-	FastestRequest        time.Duration
-	SlowestRequest        time.Duration
-	TwoHundredResponses   int
-	ThreeHundredResponses int
-	FourHundredResponses  int
-	FiveHundredResponses  int
+	TotalCalls            int           `json:"total_calls"`
+	TotalTime             time.Duration `json:"total_time"`
+	AvgTimePerRequest     time.Duration `json:"avg_time_per_request"`
+	FastestRequest        time.Duration `json:"fastest_request"`
+	SlowestRequest        time.Duration `json:"slowest_request"`
+	TwoHundredResponses   int           `json:"two_hundreds"`
+	ThreeHundredResponses int           `json:"three_hundreds"`
+	FourHundredResponses  int           `json:"four_hundreds"`
+	FiveHundredResponses  int           `json:"five_hundreds"`
 }
 
-func CreateHTTPClient(timeout int64, keepalives bool, compression bool) http.Client {
+var validHTTPMethods = map[string]bool{
+	"GET":    true,
+	"POST":   true,
+	"PUT":    true,
+	"DELETE": true,
+	"HEAD":   true,
+}
 
+func isValidMethod(method string) bool {
+	return validHTTPMethods[method]
+}
+
+func createHTTPClient(timeout int64, keepalives bool, compression bool, proxyAddress, proxyUser, proxyPass string, skipSSLValidation bool) *http.Client {
 	t := &http.Transport{}
 
 	if !keepalives {
-		t.MaxConnsPerHost = -1
 		t.DisableKeepAlives = true
 	}
 
@@ -43,84 +57,147 @@ func CreateHTTPClient(timeout int64, keepalives bool, compression bool) http.Cli
 		t.DisableCompression = compression
 	}
 
-	return http.Client{
+	if skipSSLValidation {
+		t.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+
+	if proxyAddress != "" {
+		proxyURL, err := url.Parse(proxyAddress)
+		if err != nil {
+			log.Fatal("Invalid proxy URL: ", err)
+			os.Exit(1)
+		}
+
+		t.Proxy = http.ProxyURL(proxyURL)
+
+		if proxyUser != "" && proxyPass != "" {
+			proxyURL.User = url.UserPassword(proxyUser, proxyPass)
+		}
+	}
+
+	return &http.Client{
 		Timeout:   time.Second * time.Duration(timeout),
 		Transport: t,
 	}
 }
 
-// MakeRequest makes a HTTP request
-func MakeRequestAsync(url string, useHTTP bool, headers string, body []byte, mu *sync.Mutex, wg *sync.WaitGroup, client *http.Client, results *[]HTTPResponse) {
-	var requestHeaders map[string]string
+// Dispatcher
+func Dispatcher(reqChan chan *http.Request, duration int, requestsPerSecond int, u string, method string, body []byte, headers string, username string, password string) {
+	if !isValidMethod(method) {
+		log.Printf("Invalid HTTP Method: %s", method)
+		os.Exit(1)
+	}
+
+	parsedURL, err := url.Parse(u)
+	if err != nil {
+		log.Fatal("Invalid URL:", err)
+		os.Exit(1)
+	}
+
+	parsedURL.Host = strings.ToLower(parsedURL.Host)
+	u = parsedURL.String()
+
+	totalRequests := requestsPerSecond * duration
+	for i := 0; i < totalRequests; i++ {
+		req, err := http.NewRequest(method, u, bytes.NewBuffer(body))
+		if err != nil {
+			log.Println(err)
+			continue // if error, skip the current iteration and proceed with the next
+		}
+
+		if username != "" && password != "" {
+			req.SetBasicAuth(username, password)
+		}
+
+		if headers != "" {
+			headerLines := strings.Split(headers, ",")
+
+			if err := setHeaders(req, headerLines); err != nil {
+				log.Printf("%s\n", err)
+				continue // continue with the next request
+			}
+		}
+		reqChan <- req
+	}
+
+	close(reqChan)
+}
+
+func setHeaders(r *http.Request, headers []string) error {
+	requestHeaders, err := parseHeaders(headers)
+	if err != nil {
+		return errors.New(fmt.Sprintf("failed to parse headers: %s", err))
+	}
+
+	for k, v := range requestHeaders {
+		r.Header.Set(k, v)
+	}
+	return nil
+}
+
+// worker pool
+func WorkerPool(reqChan chan *http.Request, respChan chan HTTPResponse, goroutines int, requestsPerSecond int, duration int, timeout int64, keepalives, compression bool, proxyAddress, proxyUser, proxyPass string, skipSSLValidation bool) {
+	var wg sync.WaitGroup
+	client := createHTTPClient(timeout, keepalives, compression, proxyAddress, proxyUser, proxyPass, skipSSLValidation)
+	for durationCounter := 1; durationCounter <= duration; durationCounter++ {
+		for i := 0; i < goroutines; i++ {
+			wg.Add(1)
+			go worker(client, reqChan, respChan, &wg)
+		}
+
+		var finished = durationCounter * requestsPerSecond
+		color.Cyan("Finished sending %d requests...", finished)
+		time.Sleep(1 * time.Second)
+	}
+	wg.Wait()
+	close(respChan)
+}
+
+// Worker
+func worker(client *http.Client, reqChan chan *http.Request, respChan chan HTTPResponse, wg *sync.WaitGroup) {
 	defer wg.Done()
-	// client trace to log whether the request's underlying tcp connection was re-used
-	//clientTrace := &httptrace.ClientTrace{
-	//	GotConn: func(info httptrace.GotConnInfo) { log.Printf("conn was reused: %t", info.Reused) },
-	//}
-	//traceCtx := httptrace.WithClientTrace(context.Background(), clientTrace)
+	for req := range reqChan {
+		start := time.Now()
+		httpResponse := HTTPResponse{}
 
-	mu.Lock()
-	httpResponse := HTTPResponse{}
-
-	if !strings.Contains(url, "http") {
-		url = ParseURL(url, useHTTP)
-	}
-
-	url = strings.ToLower(url)
-
-	request, err := http.NewRequest(http.MethodGet, url, bytes.NewBuffer(body))
-	if err != nil {
-		httpResponse.Err = err
-	}
-
-	if headers != "" {
-		requestHeaders = ParseHeaders(headers)
-
-		for k, v := range requestHeaders {
-			request.Header.Set(k, v)
+		resp, err := client.Transport.RoundTrip(req)
+		if err != nil {
+			httpResponse.Err = err
 		}
-	}
+		end := time.Since(start)
+		if err := resp.Body.Close(); err != nil {
+			log.Println(err)
+		}
 
-	start := time.Now()
-	response, err := client.Do(request)
-	if err != nil {
-		httpResponse.Err = err
-	}
-	if _, err := io.Copy(ioutil.Discard, response.Body); err != nil {
-		log.Fatal(err)
-	}
-	response.Body.Close()
+		httpResponse.Status = resp.StatusCode
+		httpResponse.Latency = end
 
-	end := time.Since(start)
-	status := response.StatusCode
-
-	httpResponse = HTTPResponse{
-		Latency: end,
-		Status:  status,
+		respChan <- httpResponse
 	}
-	mu.Unlock()
-
-	*results = append(*results, httpResponse)
 }
 
-func ParseURL(url string, useHTTP bool) string {
-	if !useHTTP {
-		return fmt.Sprintf("https://%s", strings.ToLower(url))
+func parseHeader(headerString string) (string, string, error) {
+	colonIndex := strings.Index(headerString, ":")
+	if colonIndex == -1 {
+		return "", "", errors.New(fmt.Sprintf("invalid header format: %s", headerString))
 	}
 
-	return fmt.Sprintf("http://%s", strings.ToLower(url))
+	headerName := strings.TrimSpace(headerString[:colonIndex])
+	headerValue := strings.TrimSpace(headerString[colonIndex+1:])
+
+	return headerName, headerValue, nil
 }
 
-func ParseHeaders(headers string) map[string]string {
-	m := make(map[string]string)
+func parseHeaders(headers []string) (map[string]string, error) {
+	headerMap := make(map[string]string)
 
-	csvs := strings.Split(headers, ",")
-	for _, v := range csvs {
-		headers := strings.Split(v, ":")
-		for i := 0; i < len(headers)-1; i++ {
-			m[headers[i]] = headers[i+1]
+	for _, headerLine := range headers {
+		headerName, headerValue, err := parseHeader(headerLine)
+		if err != nil {
+			return nil, err
 		}
+		headerMap[headerName] = headerValue
 	}
 
-	return m
+	return headerMap, nil
 }
