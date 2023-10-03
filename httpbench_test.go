@@ -2,6 +2,7 @@ package httpbench
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 )
@@ -40,12 +41,16 @@ func TestDispatcher(t *testing.T) {
 	duration := 2
 	rps := 5 // Requests per second
 	expectedTotalRequests := duration * rps
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Hello, Gopher!"))
+	}))
 
 	reqChan := make(chan *http.Request, expectedTotalRequests)
 
 	// You might want to test different configurations using table driven tests.
 	// Here's an example for a single configuration.
-	Dispatcher(reqChan, duration, rps, "https://example.com", "GET", nil, "", "", "")
+	Dispatcher(reqChan, duration, rps, server.URL, "GET", nil, "", "", "")
 
 	count := 0
 	for range reqChan {
