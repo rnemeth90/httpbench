@@ -50,7 +50,10 @@ func TestDispatcher(t *testing.T) {
 
 	// You might want to test different configurations using table driven tests.
 	// Here's an example for a single configuration.
-	Dispatcher(reqChan, duration, rps, server.URL, "GET", nil, "", "", "")
+	err := Dispatcher(reqChan, duration, rps, server.URL, "GET", nil, "", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	count := 0
 	for range reqChan {

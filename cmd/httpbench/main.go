@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"runtime"
@@ -195,7 +196,10 @@ func run(c config, w io.Writer) error {
 		goroutines = numjobs
 	}
 
-	httpbench.Dispatcher(reqChan, c.duration, c.requestsPerSecond, c.url, c.method, body, c.headers, c.username, c.password)
+	if err := httpbench.Dispatcher(reqChan, c.duration, c.requestsPerSecond, c.url, c.method, body, c.headers, c.username, c.password); err != nil {
+		log.Fatal(err)
+		os.Exit(1)
+	}
 
 	httpbench.WorkerPool(reqChan, respChan, c.goroutines, c.requestsPerSecond, c.duration, c.timeout, c.keepalives, c.compression, c.proxyAddress, c.proxyUser, c.proxyPass, c.insecure)
 

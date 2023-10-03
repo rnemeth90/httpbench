@@ -82,7 +82,7 @@ func createHTTPClient(timeout int64, keepalives bool, compression bool, proxyAdd
 }
 
 // Dispatcher
-func Dispatcher(reqChan chan *http.Request, duration int, requestsPerSecond int, u string, method string, body []byte, headers string, username string, password string) {
+func Dispatcher(reqChan chan *http.Request, duration int, requestsPerSecond int, u string, method string, body []byte, headers string, username string, password string) error {
 	if !isValidMethod(method) {
 		log.Printf("Invalid HTTP Method: %s", method)
 		os.Exit(1)
@@ -90,8 +90,7 @@ func Dispatcher(reqChan chan *http.Request, duration int, requestsPerSecond int,
 
 	parsedURL, err := url.Parse(u)
 	if err != nil {
-		log.Fatal("Invalid URL:", err)
-		os.Exit(1)
+		return fmt.Errorf("Invalid URL:", err)
 	}
 
 	parsedURL.Host = strings.ToLower(parsedURL.Host)
@@ -121,6 +120,7 @@ func Dispatcher(reqChan chan *http.Request, duration int, requestsPerSecond int,
 	}
 
 	close(reqChan)
+	return nil
 }
 
 func setHeaders(r *http.Request, headers []string) error {
