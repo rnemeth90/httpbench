@@ -163,7 +163,16 @@ func worker(client *http.Client, reqChan chan *http.Request, respChan chan HTTPR
 		resp, err := client.Transport.RoundTrip(req)
 		if err != nil {
 			httpResponse.Err = err
+			respChan <- httpResponse
+			continue
 		}
+
+		if resp == nil {
+			httpResponse.Err = errors.New("received nil response")
+			respChan <- httpResponse
+			continue
+		}
+
 		end := time.Since(start)
 		if err := resp.Body.Close(); err != nil {
 			log.Println(err)

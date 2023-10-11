@@ -79,7 +79,8 @@ If you need help or find a bug, submit an issue
 - [ ] override the host header
 - [ ] output version
 - [ ] verbose mode(?)
-- [ ] improve usage() function
+- [x] improve usage() function
+- [ ] capture sigterm and print results
 
 ## Version History
 * 1.0.0
