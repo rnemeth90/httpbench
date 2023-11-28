@@ -1,4 +1,4 @@
-# httpbench [![build-release-binary](https://github.com/rnemeth90/httpbench/actions/workflows/build.yaml/badge.svg)](https://github.com/rnemeth90/httpbench/actions/workflows/build.yaml) [![Go Report Card](https://goreportcard.com/badge/github.com/rnemeth90/httpbench/)](https://goreportcard.com/report/github.com/rnemeth90/httpbench/)
+# httpbench [![build-release-binary](https://github.com/rnemeth90/httpbench/actions/workflows/build.yaml/badge.svg)](https://github.com/rnemeth90/httpbench/actions/workflows/build.yaml) [![Go Report Card](https://goreportcard.com/badge/github.com/rnemeth90/httpbench)](https://goreportcard.com/report/github.com/rnemeth90/httpbench)
 ## Description
 HttpBench is a simple utility for bench marking HTTP servers. 
 
