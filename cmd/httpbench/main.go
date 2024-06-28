@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -172,10 +171,26 @@ func main() {
 
 func run(c config, w io.Writer) error {
 	body := make([]byte, 0)
+
+	numjobs := c.requestsPerSecond * c.duration
+	respChan := make(chan httpbench.HTTPResponse, numjobs)
+	reqChan := make(chan *http.Request, numjobs)
+
 	err := errors.New("")
+	dispatcher := httpbench.Dispatcher{
+		ReqChan:  reqChan,
+		Duration: c.duration,
+		RPS:      c.requestsPerSecond,
+		URL:      c.url,
+		Method:   c.method,
+		Body:     body,
+		Headers:  c.headers,
+		Username: c.username,
+		Password: c.password,
+	}
 
 	if c.bodyFileName != "" {
-		body, err = ioutil.ReadFile(bodyFileName)
+		dispatcher.Body, err = os.ReadFile(bodyFileName)
 		if err != nil {
 			return fmt.Errorf("Failed to read the body file: %v\n", err)
 		}
@@ -186,17 +201,12 @@ func run(c config, w io.Writer) error {
 	}
 
 	color.Green("Making %d calls per second for %d seconds...", c.requestsPerSecond, c.duration)
-
-	numjobs := c.requestsPerSecond * c.duration
-	respChan := make(chan httpbench.HTTPResponse, numjobs)
-	reqChan := make(chan *http.Request, numjobs)
-
 	if c.goroutines > numjobs {
 		fmt.Fprintln(os.Stderr, "Number of goroutines exceeds the total number of requests. Adjusting goroutines to match request count.")
 		goroutines = numjobs
 	}
 
-	if err := httpbench.Dispatcher(reqChan, c.duration, c.requestsPerSecond, c.url, c.method, body, c.headers, c.username, c.password); err != nil {
+	if err := dispatcher.Dispatch(); err != nil {
 		log.Fatal(err)
 		os.Exit(1)
 	}

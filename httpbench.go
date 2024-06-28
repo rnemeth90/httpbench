@@ -1,7 +1,6 @@
 package httpbench
 
 import (
-	"bytes"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -79,48 +78,6 @@ func createHTTPClient(timeout int64, keepalives bool, compression bool, proxyAdd
 		Timeout:   time.Second * time.Duration(timeout),
 		Transport: t,
 	}
-}
-
-// Dispatcher
-func Dispatcher(reqChan chan *http.Request, duration int, requestsPerSecond int, u string, method string, body []byte, headers string, username string, password string) error {
-	if !isValidMethod(method) {
-		log.Printf("Invalid HTTP Method: %s", method)
-		os.Exit(1)
-	}
-
-	parsedURL, err := url.Parse(u)
-	if err != nil {
-		return fmt.Errorf("Invalid URL:", err)
-	}
-
-	parsedURL.Host = strings.ToLower(parsedURL.Host)
-	u = parsedURL.String()
-
-	totalRequests := requestsPerSecond * duration
-	for i := 0; i < totalRequests; i++ {
-		req, err := http.NewRequest(method, u, bytes.NewBuffer(body))
-		if err != nil {
-			log.Println(err)
-			continue // if error, skip the current iteration and proceed with the next
-		}
-
-		if username != "" && password != "" {
-			req.SetBasicAuth(username, password)
-		}
-
-		if headers != "" {
-			headerLines := strings.Split(headers, ",")
-
-			if err := setHeaders(req, headerLines); err != nil {
-				log.Printf("%s\n", err)
-				continue // continue with the next request
-			}
-		}
-		reqChan <- req
-	}
-
-	close(reqChan)
-	return nil
 }
 
 func setHeaders(r *http.Request, headers []string) error {

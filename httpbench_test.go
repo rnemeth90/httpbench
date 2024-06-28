@@ -41,17 +41,24 @@ func TestDispatcher(t *testing.T) {
 	duration := 2
 	rps := 5 // Requests per second
 	expectedTotalRequests := duration * rps
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Hello, Gopher!"))
-	}))
-
 	reqChan := make(chan *http.Request, expectedTotalRequests)
 
-	// You might want to test different configurations using table driven tests.
+	server := createTestServer()
+
+	// in the future, we might want to test different configurations using table driven tests.
 	// Here's an example for a single configuration.
-	err := Dispatcher(reqChan, duration, rps, server.URL, "GET", nil, "", "", "")
-	if err != nil {
+	dispatcher := Dispatcher{
+		ReqChan:  reqChan,
+		Duration: duration,
+		RPS:      rps,
+		URL:      server.URL,
+		Method:   "GET",
+		Body:     nil,
+		Headers:  "",
+		Username: "",
+		Password: "",
+	}
+	if err := dispatcher.Dispatch(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -63,4 +70,11 @@ func TestDispatcher(t *testing.T) {
 	if count != expectedTotalRequests {
 		t.Errorf("Expected %d requests, but got %d", expectedTotalRequests, count)
 	}
+}
+
+func createTestServer() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Hello, Gopher!"))
+	}))
 }
