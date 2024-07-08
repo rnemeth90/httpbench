@@ -9,10 +9,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"sync"
 	"time"
-
-	"github.com/fatih/color"
 )
 
 type HTTPResponse struct {
@@ -90,56 +87,6 @@ func setHeaders(r *http.Request, headers []string) error {
 		r.Header.Set(k, v)
 	}
 	return nil
-}
-
-// worker pool
-func WorkerPool(reqChan chan *http.Request, respChan chan HTTPResponse, goroutines int, requestsPerSecond int, duration int, timeout int64, keepalives, compression bool, proxyAddress, proxyUser, proxyPass string, skipSSLValidation bool) {
-	var wg sync.WaitGroup
-	client := createHTTPClient(timeout, keepalives, compression, proxyAddress, proxyUser, proxyPass, skipSSLValidation)
-	for durationCounter := 1; durationCounter <= duration; durationCounter++ {
-		for i := 0; i < goroutines; i++ {
-			wg.Add(1)
-			go worker(client, reqChan, respChan, &wg)
-		}
-
-		var finished = durationCounter * requestsPerSecond
-		color.Cyan("Finished sending %d requests...", finished)
-		time.Sleep(1 * time.Second)
-	}
-	wg.Wait()
-	close(respChan)
-}
-
-// Worker
-func worker(client *http.Client, reqChan chan *http.Request, respChan chan HTTPResponse, wg *sync.WaitGroup) {
-	defer wg.Done()
-	for req := range reqChan {
-		start := time.Now()
-		httpResponse := HTTPResponse{}
-
-		resp, err := client.Transport.RoundTrip(req)
-		if err != nil {
-			httpResponse.Err = err
-			respChan <- httpResponse
-			continue
-		}
-
-		if resp == nil {
-			httpResponse.Err = errors.New("received nil response")
-			respChan <- httpResponse
-			continue
-		}
-
-		end := time.Since(start)
-		if err := resp.Body.Close(); err != nil {
-			log.Println(err)
-		}
-
-		httpResponse.Status = resp.StatusCode
-		httpResponse.Latency = end
-
-		respChan <- httpResponse
-	}
 }
 
 func parseHeader(headerString string) (string, string, error) {
